@@ -21,17 +21,18 @@ import type {
 import { createInitialState } from './core/game_state';
 import { applyMoveWithWinner, getStonesToPlace } from './core/rules';
 import { DummyResNetEvaluator } from './core/resnet_ai';
-import { MCTSConnect6AI } from './core/mcts_ai_engine';
+import { MCTSConnect6AI, type MCTSConfig } from './core/mcts_ai_engine';
 import { HybridStrategyManager } from './strategy/hybrid_strategy';
 import { PerformanceMonitor } from './strategy/performance_monitor';
 import { getOpeningMove } from './core/opening_book';
+import { SelfPlayOptimizer } from './core/self_play_optimizer';
 import {
   pvsSearchBestMove,
   getLastSearchStats,
 } from './core/pvs_search';
 
 // 估值权重
-const defaultWeights: EvaluationWeights = {
+const initialWeights: EvaluationWeights = {
   road_3_score: 100,
   road_4_score: 350,
   live4_score: 3000,
@@ -47,11 +48,15 @@ const pvsConfig: SearchConfig = {
 };
 
 // MCTS 配置（deep 模式用）
-const mctsConfig = {
+const baseMctsConfig: MCTSConfig = {
   simulationCount: 80,
   simulationSteps: 8,
   expandNodes: 12,
   minWinRateThreshold: 0.3,
+  ucbConstant: 1.35,
+  dirichletEpsilon: 0.22,
+  maxTranspositionSize: 80_000,
+  rolloutTopK: 8,
 };
 
 type GameMode = 'PVP' | 'PVE' | 'AIVSAI';
@@ -59,11 +64,18 @@ type StrategyMode = 'auto' | 'traditional' | 'deep';
 
 // 控制台的 3 个 Tab 类型
 type ConsoleTab = 'evolve' | 'deep' | 'export';
+type ModelPresetKey = 'balanced' | 'fast' | 'accurate';
 
 export const App: React.FC = () => {
   const [state, setState] = useState<GameState>(() => createInitialState());
   const [aiThinking, setAiThinking] = useState(false);
   const [lastAIMove, setLastAIMove] = useState<AIMoveDecision | null>(null);
+  const [weights, setWeights] = useState<EvaluationWeights>(initialWeights);
+  const [mctsConfig, setMctsConfig] = useState(baseMctsConfig);
+  const [modelInfo, setModelInfo] = useState<{ name: string; detail: string } | null>(
+    null,
+  );
+  const [selectedPreset, setSelectedPreset] = useState<ModelPresetKey>('balanced');
 
   const [gameMode, setGameMode] = useState<GameMode>('PVE');
   const [strategyMode, setStrategyMode] =
@@ -77,6 +89,8 @@ export const App: React.FC = () => {
 
   // AI 历史记录，用于实时分析图
   const [aiHistory, setAiHistory] = useState<AIHistoryItem[]>([]);
+  const [optimizerRunning, setOptimizerRunning] = useState(false);
+  const [optimizerMessage, setOptimizerMessage] = useState<string | null>(null);
 
   // 是否进入控制台 & 当前控制台 tab
   const [showConsole, setShowConsole] = useState(false);
@@ -84,15 +98,74 @@ export const App: React.FC = () => {
 
   const perfMonitor = useMemo(() => new PerformanceMonitor(), []);
 
-  const { strategyManager, mcts } = useMemo(() => {
-    const resnet = new DummyResNetEvaluator();
-    const mctsAI = new MCTSConnect6AI(resnet, mctsConfig);
-    const manager = new HybridStrategyManager(mctsAI, resnet, {
-      pvsConfig,
-      weights: defaultWeights,
-    });
-    return { strategyManager: manager, mcts: mctsAI };
-  }, []);
+  const resnet = useMemo(() => new DummyResNetEvaluator(), []);
+  const mcts = useMemo(
+    () => new MCTSConnect6AI(resnet, mctsConfig),
+    [resnet, mctsConfig],
+  );
+
+  const optimizer = useMemo(
+    () =>
+      new SelfPlayOptimizer({
+        populationSize: 10,
+        generations: 4,
+        mutationRate: 0.12,
+      }),
+    [],
+  );
+
+  const modelPresets = useMemo<
+    Record<
+      ModelPresetKey,
+      { name: string; detail: string; config: MCTSConfig }
+    >
+  >(
+    () => ({
+      balanced: {
+        name: 'ResNet-Balanced',
+        detail: '80 次模拟 / 8 层搜索，兼顾速度和准确率',
+        config: { ...baseMctsConfig },
+      },
+      fast: {
+        name: 'ResNet-Fast',
+        detail: '40 次模拟 / 6 层搜索，优先响应速度',
+        config: {
+          simulationCount: 40,
+          simulationSteps: 6,
+          expandNodes: 8,
+          minWinRateThreshold: 0.35,
+          ucbConstant: 1.3,
+          dirichletEpsilon: 0.18,
+          maxTranspositionSize: 60_000,
+          rolloutTopK: 6,
+        },
+      },
+      accurate: {
+        name: 'ResNet-Accurate',
+        detail: '160 次模拟 / 10 层搜索，强化复杂局面',
+        config: {
+          simulationCount: 160,
+          simulationSteps: 10,
+          expandNodes: 16,
+          minWinRateThreshold: 0.25,
+          ucbConstant: 1.5,
+          dirichletEpsilon: 0.25,
+          maxTranspositionSize: 120_000,
+          rolloutTopK: 10,
+        },
+      },
+    }),
+    [],
+  );
+
+  const strategyManager = useMemo(
+    () =>
+      new HybridStrategyManager(mcts, resnet, {
+        pvsConfig,
+        weights,
+      }),
+    [mcts, resnet, weights],
+  );
 
   // 当前这个 player 是否由 AI 控制？
   const isAIPlayer = useCallback(
@@ -114,7 +187,63 @@ export const App: React.FC = () => {
     setLastAiThinkTimeMs(null);
     setLastAiNodes(null);
     setAiHistory([]); // 清空历史
-  }, []);
+    mcts.clearTranspositionTables();
+  }, [mcts]);
+
+  useEffect(() => {
+    mcts.clearTranspositionTables();
+  }, [mcts]);
+
+  const handleRunOptimizer = useCallback(async () => {
+    if (optimizerRunning) return;
+    setOptimizerRunning(true);
+    setOptimizerMessage('正在运行自进化训练...');
+
+    try {
+      const learned = await optimizer.optimize();
+      const best = optimizer.getBestWeights() ?? learned;
+      setWeights(best);
+      const report = optimizer.getLatestReport();
+      const scoreDesc = report ? `最佳适应度 ${report.bestFitness.toFixed(2)}` : '训练完成';
+      setOptimizerMessage(`${scoreDesc}，最优权重已应用到当前 AI。`);
+    } catch (e) {
+      console.error('自进化训练失败', e);
+      setOptimizerMessage('训练失败，请稍后重试。');
+    } finally {
+      setOptimizerRunning(false);
+    }
+  }, [optimizer, optimizerRunning]);
+
+  const handleSelectModel = useCallback(
+    (key: ModelPresetKey) => {
+      const preset = modelPresets[key];
+      if (!preset) return;
+      setSelectedPreset(key);
+      setMctsConfig({ ...preset.config });
+      setModelInfo({ name: preset.name, detail: preset.detail });
+    },
+    [modelPresets],
+  );
+
+  const handleExportModel = useCallback(() => {
+    const payload = {
+      generatedAt: new Date().toISOString(),
+      weights,
+      pvsConfig,
+      mctsConfig,
+      modelInfo,
+    };
+
+    const blob = new Blob([JSON.stringify(payload, null, 2)], {
+      type: 'application/json',
+    });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `connect6_model_${Date.now()}.json`;
+    a.click();
+    URL.revokeObjectURL(url);
+  }, [mctsConfig, modelInfo, weights]);
 
   // 根据策略模式，给当前局面选一手 AI 棋
   const decideAIMove = useCallback(
@@ -127,7 +256,7 @@ export const App: React.FC = () => {
         const r = pvsSearchBestMove(
           current,
           player,
-          defaultWeights,
+          weights,
           pvsConfig,
         );
         r.debugInfo = {
@@ -156,7 +285,7 @@ export const App: React.FC = () => {
       r.debugInfo.engine ??= 'hybrid';
       return r;
     },
-    [strategyMode, mcts, strategyManager],
+    [strategyMode, mcts, strategyManager, weights],
   );
 
   // 真正执行 AI 一手棋（假设此时轮到 player）
@@ -481,52 +610,124 @@ export const App: React.FC = () => {
                 fontSize: 13,
                 overflow: 'auto',
               }}
-            >
-              {consoleTab === 'evolve' && (
-                <div>
-                  <h3 style={{ marginTop: 0 }}>自进化训练（遗传算法）</h3>
-                  <p style={{ color: '#555' }}>
-                    这里将来会接入基于遗传算法的自对弈训练系统：
-                    <br />
-                    · 随机初始化一批参数个体（权重向量）
-                    <br />
-                    · 让它们两两对弈，计算胜率/评分作为适应度
-                    <br />
-                    · 选择 &amp; 交叉 &amp; 变异，生成下一代
-                    <br />
-                    · 把最优个体同步给前端 AI 进行对弈展示
-                  </p>
-                  <button style={consoleMainBtnStyle}>
-                    启动自进化训练（占位）
-                  </button>
-                </div>
-              )}
+              >
+                {consoleTab === 'evolve' && (
+                  <div>
+                    <h3 style={{ marginTop: 0 }}>自进化训练（遗传算法）</h3>
+                    <p style={{ color: '#555' }}>
+                      基于遗传算法的自对弈优化：随机初始化参数 → 对弈评估 →
+                      选择/交叉/变异 → 生成下一代。完成后会自动应用最优估值权重。
+                    </p>
+                    <button
+                      style={consoleMainBtnStyle}
+                      onClick={handleRunOptimizer}
+                      disabled={optimizerRunning}
+                    >
+                      {optimizerRunning ? '训练中...' : '启动自进化训练'}
+                    </button>
+                    {optimizerMessage && (
+                      <div style={{ marginTop: 8, color: '#374151' }}>
+                        {optimizerMessage}
+                      </div>
+                    )}
+                    <div style={{ marginTop: 12 }}>
+                      <div style={{ fontWeight: 'bold', marginBottom: 6 }}>
+                        当前估值权重
+                      </div>
+                      <div
+                        style={{
+                          display: 'grid',
+                          gridTemplateColumns: '1fr 1fr',
+                          gap: 6,
+                          fontSize: 12,
+                        }}
+                      >
+                        {Object.entries(weights).map(([k, v]) => (
+                          <div
+                            key={k}
+                            style={{
+                              padding: '6px 8px',
+                              background: '#f8fafc',
+                              borderRadius: 8,
+                              border: '1px solid #e5e7eb',
+                            }}
+                          >
+                            <div style={{ color: '#6b7280' }}>{k}</div>
+                            <div style={{ fontWeight: 'bold' }}>{v.toFixed(1)}</div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                )}
 
-              {consoleTab === 'deep' && (
-                <div>
-                  <h3 style={{ marginTop: 0 }}>深度学习模型</h3>
-                  <p style={{ color: '#555' }}>
-                    这里可以挂载 / 切换不同版本的 ResNet / 深度策略模型，
-                    并查看其表现、版本号、训练时间等。
-                  </p>
-                  <button style={consoleMainBtnStyle}>
-                    加载模型（占位）
-                  </button>
-                </div>
-              )}
+                {consoleTab === 'deep' && (
+                  <div>
+                    <h3 style={{ marginTop: 0 }}>深度学习模型</h3>
+                    <p style={{ color: '#555' }}>
+                      选择一组 ResNet + MCTS 搜索参数，快速切换“速度优先 /
+                      均衡 / 强化搜索”三种风格。
+                    </p>
+                    <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                      <select
+                        value={selectedPreset}
+                        onChange={e =>
+                          handleSelectModel(e.target.value as ModelPresetKey)
+                        }
+                        style={{ padding: '6px 10px', borderRadius: 8, flex: 1 }}
+                      >
+                        <option value="balanced">均衡（默认）</option>
+                        <option value="fast">极速（响应优先）</option>
+                        <option value="accurate">深算（复杂局面）</option>
+                      </select>
+                      <button
+                        style={consoleMainBtnStyle}
+                        onClick={() => handleSelectModel(selectedPreset)}
+                      >
+                        应用模型
+                      </button>
+                    </div>
+                    <div style={{ marginTop: 10, fontSize: 12, color: '#374151' }}>
+                      <div style={{ fontWeight: 'bold' }}>
+                        当前模型：{modelInfo?.name ?? '默认平衡版'}
+                      </div>
+                      <div style={{ marginTop: 4 }}>{modelInfo?.detail}</div>
+                      <div style={{ marginTop: 8 }}>
+                        MCTS 参数：
+                        <ul style={{ margin: '4px 0 0 16px', padding: 0 }}>
+                          <li>simulationCount: {mctsConfig.simulationCount}</li>
+                          <li>simulationSteps: {mctsConfig.simulationSteps}</li>
+                          <li>expandNodes: {mctsConfig.expandNodes}</li>
+                          <li>
+                            minWinRateThreshold: {mctsConfig.minWinRateThreshold}
+                          </li>
+                        </ul>
+                      </div>
+                    </div>
+                  </div>
+                )}
 
-              {consoleTab === 'export' && (
-                <div>
-                  <h3 style={{ marginTop: 0 }}>模型导出</h3>
-                  <p style={{ color: '#555' }}>
-                    这里将支持导出当前最优参数（权重、配置等）为 JSON /
-                    ONNX 等格式，用于部署到服务器或移动端。
-                  </p>
-                  <button style={consoleMainBtnStyle}>
-                    导出当前模型参数（占位）
-                  </button>
-                </div>
-              )}
+                {consoleTab === 'export' && (
+                  <div>
+                    <h3 style={{ marginTop: 0 }}>模型导出</h3>
+                    <p style={{ color: '#555' }}>
+                      一键导出当前使用的估值权重、PVS 配置与 MCTS 模型参数，
+                      便于部署或复现训练结果。
+                    </p>
+                    <button style={consoleMainBtnStyle} onClick={handleExportModel}>
+                      导出当前模型参数（JSON）
+                    </button>
+                    <div style={{ marginTop: 8, fontSize: 12, color: '#374151' }}>
+                      <div>包含内容：</div>
+                      <ul style={{ margin: '4px 0 0 16px', padding: 0 }}>
+                        <li>估值权重（路编码 + 棋型 + VCDT 奖励）</li>
+                        <li>PVS 搜索配置（深度 / 时间限制）</li>
+                        <li>MCTS 参数（模拟次数 / 节点扩展策略）</li>
+                        <li>模型标签：{modelInfo?.name ?? '默认平衡版'}</li>
+                      </ul>
+                    </div>
+                  </div>
+                )}
             </div>
           </div>
         </div>

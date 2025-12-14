@@ -1,6 +1,7 @@
 import type { EvaluationWeights, GameState, Player } from '../types';
 import { createInitialState } from './game_state';
 import { pvsSearchBestMove } from './pvs_search';
+import { evaluateState } from './evaluation';
 import { applyMoveWithWinner } from './rules';
 
 interface GAConfig {
@@ -12,6 +13,9 @@ interface GAConfig {
 export class SelfPlayOptimizer {
   // ★ 显式字段
   private gaConfig: GAConfig;
+  private lastReport: { generation: number; bestFitness: number } | null = null;
+  private bestWeights: EvaluationWeights | null = null;
+  private bestFitness = -Infinity;
 
   constructor(gaConfig: GAConfig) {
     this.gaConfig = gaConfig;
@@ -20,22 +24,19 @@ export class SelfPlayOptimizer {
   async optimize(): Promise<EvaluationWeights> {
     let population = this.initPopulation();
 
+    let fitness: number[] = [];
+
     for (let gen = 0; gen < this.gaConfig.generations; gen++) {
-      const fitness = await this.evaluatePopulation(population);
+      fitness = await this.evaluatePopulation(population, gen);
+      this.lastReport = { generation: gen, bestFitness: Math.max(...fitness) };
+      this.trackBest(population, fitness);
       population = this.nextGeneration(population, fitness);
     }
 
-    const fitness = await this.evaluatePopulation(population);
-    let bestIdx = 0;
-    let bestFit = -Infinity;
-    fitness.forEach((f, i) => {
-      if (f > bestFit) {
-        bestFit = f;
-        bestIdx = i;
-      }
-    });
+    fitness = await this.evaluatePopulation(population, this.gaConfig.generations);
+    this.trackBest(population, fitness);
 
-    return population[bestIdx];
+    return this.bestWeights ?? population[0];
   }
 
   private initPopulation(): EvaluationWeights[] {
@@ -52,37 +53,63 @@ export class SelfPlayOptimizer {
     return pop;
   }
 
+  getLatestReport() {
+    return this.lastReport;
+  }
+
+  getBestWeights(): EvaluationWeights | null {
+    return this.bestWeights;
+  }
+
   private async evaluatePopulation(
     population: EvaluationWeights[],
+    generation: number,
   ): Promise<number[]> {
     const fitness: number[] = [];
     for (const weights of population) {
-      const score = await this.selfPlay(weights);
+      const score = await this.selfPlay(weights, generation);
       fitness.push(score);
     }
     return fitness;
   }
 
-  private async selfPlay(weights: EvaluationWeights): Promise<number> {
+  private async selfPlay(
+    weights: EvaluationWeights,
+    generation: number,
+  ): Promise<number> {
     let state: GameState = createInitialState();
-    let player: Player = 'BLACK';
+    let player: Player = generation % 2 === 0 ? 'BLACK' : 'WHITE';
     let steps = 0;
 
-    while (!state.winner && steps < 30) {
-      const moveDecision = pvsSearchBestMove(
-        state,
-        player,
-        weights,
-        { maxDepth: 3, timeLimitMs: 100, useMultithreading: false },
-      );
-      state = applyMoveWithWinner(state, moveDecision.move);
-      player = player === 'BLACK' ? 'WHITE' : 'BLACK';
-      steps++;
+    const matchCount = 4;
+    let totalScore = 0;
+
+    for (let match = 0; match < matchCount; match++) {
+      state = createInitialState();
+      player = match % 2 === 0 ? 'BLACK' : 'WHITE';
+      steps = 0;
+
+      while (!state.winner && steps < 36) {
+        const dynamicDepth = steps < 10 ? 2 : 3;
+        const moveDecision = pvsSearchBestMove(state, player, weights, {
+          maxDepth: dynamicDepth,
+          timeLimitMs: 120,
+          useMultithreading: false,
+        });
+        state = applyMoveWithWinner(state, moveDecision.move);
+        player = player === 'BLACK' ? 'WHITE' : 'BLACK';
+        steps++;
+      }
+
+      const winnerScore =
+        state.winner === 'BLACK' ? 1 : state.winner === 'WHITE' ? 0 : 0.5;
+      const longevityBonus = Math.min(steps / 40, 1) * 0.1;
+      const stability = evaluateState(state, 'BLACK', weights) / 50_000;
+
+      totalScore += winnerScore + longevityBonus + stability * 0.05;
     }
 
-    if (state.winner === 'BLACK') return 1;
-    if (state.winner === 'WHITE') return 0;
-    return 0.5;
+    return totalScore / matchCount;
   }
 
   private nextGeneration(
@@ -111,6 +138,15 @@ export class SelfPlayOptimizer {
 
     return newPop;
   }
+
+  private trackBest(population: EvaluationWeights[], fitness: number[]) {
+    fitness.forEach((f, idx) => {
+      if (f > this.bestFitness) {
+        this.bestFitness = f;
+        this.bestWeights = { ...population[idx] };
+      }
+    });
+  }
 }
 
 function randIn(min: number, max: number): number {
@@ -137,7 +173,12 @@ function mutate(w: EvaluationWeights, rate: number) {
   ];
   for (const key of props) {
     if (Math.random() < rate) {
-      (w as any)[key] *= 1 + (Math.random() - 0.5) * 0.2;
+      (w as any)[key] *= 1 + (Math.random() - 0.5) * 0.15;
+      (w as any)[key] = clamp((w as any)[key], 50, 20_000);
     }
   }
+}
+
+function clamp(v: number, min: number, max: number) {
+  return Math.max(min, Math.min(max, v));
 }

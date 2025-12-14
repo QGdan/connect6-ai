@@ -25,6 +25,7 @@ const MIN_HISTORY_THRESHOLD = 100;
 
 const ASPIRATION_WINDOW = 50_000;
 const QUIESCENCE_MAX_DEPTH = 2;
+const MAX_KILLER_DEPTH = 32;
 
 // ===== 置换表 =====
 type TTFlag = 'EXACT' | 'LOWER' | 'UPPER';
@@ -177,6 +178,10 @@ function quiescenceSearch(
 // ===== PVS 核心 =====
 let lastSearchNodeCount = 0;
 let lastSearchDepth = 0;
+const killerMoves: (Move | undefined)[][] = Array.from({ length: MAX_KILLER_DEPTH }, () => [
+  undefined,
+  undefined,
+]);
 
 export function getLastSearchStats() {
   return {
@@ -307,7 +312,10 @@ function pvs(
       }
     }
 
-    if (localAlpha >= beta) break;
+    if (localAlpha >= beta) {
+      storeKiller(depth, move);
+      break;
+    }
   }
 
   if (bestMove) {
@@ -451,7 +459,7 @@ function scoreMoveForOrdering(
   );
 
   // 3. 杀手移动加分（暂未启用）
-  const killerBonus = 0;
+  const killerBonus = findKillerBonus(depth, move);
 
   // 4. 威胁评估分（重点修正）
   let threatScore = 0;
@@ -504,6 +512,40 @@ function scoreMoveForOrdering(
 
   // 综合排序分数：基础评估 + 部分威胁权重 + 历史 / 杀手
   return evalScore + threatScore * 0.3 + historyScore * 0.1 + killerBonus;
+}
+
+function sameMove(a: Move | undefined, b: Move): boolean {
+  if (!a) return false;
+  if (a.positions.length !== b.positions.length) return false;
+  const sortPositions = (positions: Position[]) =>
+    [...positions].sort((p1, p2) => (p1.x === p2.x ? p1.y - p2.y : p1.x - p2.x));
+  const ap = sortPositions(a.positions);
+  const bp = sortPositions(b.positions);
+  return ap.every((p, idx) => p.x === bp[idx].x && p.y === bp[idx].y);
+}
+
+function storeKiller(depth: number, move: Move) {
+  if (depth <= 0 || depth > MAX_KILLER_DEPTH) return;
+  const slot = killerMoves[depth - 1];
+  if (!sameMove(slot[0], move)) {
+    slot[1] = slot[0];
+    slot[0] = move;
+  }
+}
+
+function findKillerBonus(depth: number, move: Move): number {
+  if (depth <= 0 || depth > MAX_KILLER_DEPTH) return 0;
+  const slot = killerMoves[depth - 1];
+  if (sameMove(slot[0], move)) return 25_000;
+  if (sameMove(slot[1], move)) return 12_000;
+  return 0;
+}
+
+function resetKillers() {
+  for (let i = 0; i < killerMoves.length; i++) {
+    killerMoves[i][0] = undefined;
+    killerMoves[i][1] = undefined;
+  }
 }
 
 function orderMoves(
@@ -749,6 +791,7 @@ export function pvsSearchBestMove(
   config: SearchConfig,
 ): AIMoveDecision {
   lastSearchNodeCount = 0;
+  resetKillers();
 
   const maxDepth = Math.max(1, config.maxDepth ?? 2);
   const timeLimit = config.timeLimitMs ?? 3000;
