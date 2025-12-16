@@ -10,10 +10,6 @@ function otherPlayer(p: Player): Player {
   return p === 'BLACK' ? 'WHITE' : 'BLACK';
 }
 
-function samePos(a: Position, b: Position): boolean {
-  return a.x === b.x && a.y === b.y;
-}
-
 /**
  * 在给定 state 下，假设 rootPlayer 只在 blockPos 落 1 子，
  * 检查对手是否还存在任何 “一手必杀”（threatLevel 0 或 1）。

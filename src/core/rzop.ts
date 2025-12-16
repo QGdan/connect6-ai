@@ -388,6 +388,13 @@ export function generateRZOPCandidates(state: GameState): Position[] {
       return aUrgent - bUrgent;
     }
 
+    // 开局阶段：考虑棋形连通性（鼓励团簇和交叉骨架）
+    if (openingPhase) {
+      const shapeScoreDiff =
+        openingShapeScore(state, b) - openingShapeScore(state, a);
+      if (shapeScoreDiff !== 0) return shapeScoreDiff;
+    }
+
     const da = Math.abs(a.x - center) + Math.abs(a.y - center);
     const db = Math.abs(b.x - center) + Math.abs(b.y - center);
     return da - db;
