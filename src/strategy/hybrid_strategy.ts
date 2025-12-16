@@ -31,6 +31,13 @@ export class HybridStrategyManager {
     this.config = config;
   }
 
+  updateConfig(config: Partial<HybridStrategyConfig>) {
+    this.config = {
+      ...this.config,
+      ...config,
+    };
+  }
+
   async decideMove(state: GameState, player: Player): Promise<AIMoveDecision> {
     const step = state.moveNumber;
     const complexity = estimateComplexity(state);

@@ -440,6 +440,7 @@ function scoreMoveForOrdering(
   depth: number,
 ): number {
   const nextState = applyMoveWithWinner(state, move);
+  const depthBonus = Math.max(0, 6 - depth) * 5;
 
   // 1. 基础评估分（主要指标）
   const evalScore = evaluateState(nextState, rootPlayer, weights);
@@ -503,7 +504,13 @@ function scoreMoveForOrdering(
   threatScore -= oppLive4 * 80_000;
 
   // 综合排序分数：基础评估 + 部分威胁权重 + 历史 / 杀手
-  return evalScore + threatScore * 0.3 + historyScore * 0.1 + killerBonus;
+  return (
+    evalScore +
+    threatScore * 0.3 +
+    historyScore * 0.1 +
+    killerBonus +
+    depthBonus
+  );
 }
 
 function orderMoves(
