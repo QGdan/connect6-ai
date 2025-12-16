@@ -29,7 +29,6 @@ import {
   pvsSearchBestMove,
   getLastSearchStats,
 } from './core/pvs_search';
-import { SelfPlayOptimizer, type SelfPlayProgress } from './core/self_play_optimizer';
 
 // 估值权重
 const defaultWeights: EvaluationWeights = {
@@ -41,7 +40,7 @@ const defaultWeights: EvaluationWeights = {
 };
 
 // 控制思考时间
-const basePvsConfig: SearchConfig = {
+const pvsConfig: SearchConfig = {
   maxDepth: 3,
   timeLimitMs: 3000,
   useMultithreading: false,
@@ -70,28 +69,6 @@ export const App: React.FC = () => {
   const [strategyMode, setStrategyMode] =
     useState<StrategyMode>('traditional'); // 默认传统搜索
   const [humanPlayer, setHumanPlayer] = useState<Player>('BLACK');
-  const [weights, setWeights] = useState<EvaluationWeights>(defaultWeights);
-
-  // 搜索参数（可在控制台调优）
-  const [searchDepth, setSearchDepth] = useState(basePvsConfig.maxDepth);
-  const [searchTimeMs, setSearchTimeMs] = useState(basePvsConfig.timeLimitMs);
-
-  // 自进化训练状态
-  const [gaConfig, setGaConfig] = useState({
-    populationSize: 6,
-    generations: 5,
-    mutationRate: 0.12,
-  });
-  const [gaProgress, setGaProgress] = useState<SelfPlayProgress[]>([]);
-  const [gaRunning, setGaRunning] = useState(false);
-  const [bestWeights, setBestWeights] = useState<EvaluationWeights | null>(null);
-  const bestProgressFitness = useMemo(
-    () =>
-      gaProgress.length === 0
-        ? 1
-        : Math.max(...gaProgress.map(p => Math.max(p.bestFitness, 1))),
-    [gaProgress],
-  );
 
   // AI 性能数据
   const [lastAiThinkTimeMs, setLastAiThinkTimeMs] =
@@ -107,33 +84,15 @@ export const App: React.FC = () => {
 
   const perfMonitor = useMemo(() => new PerformanceMonitor(), []);
 
-  const adaptivePvsConfig = useMemo<SearchConfig>(
-    () => {
-      const lateGameBonusDepth = state.moveNumber > 24 ? 1 : 0;
-      const timeBonus = state.moveNumber > 16 ? 400 : 0;
-
-      return {
-        maxDepth: Math.min(searchDepth + lateGameBonusDepth, 6),
-        timeLimitMs: searchTimeMs + timeBonus,
-        useMultithreading: basePvsConfig.useMultithreading,
-      };
-    },
-    [searchDepth, searchTimeMs, state.moveNumber],
-  );
-
   const { strategyManager, mcts } = useMemo(() => {
     const resnet = new DummyResNetEvaluator();
     const mctsAI = new MCTSConnect6AI(resnet, mctsConfig);
     const manager = new HybridStrategyManager(mctsAI, resnet, {
-      pvsConfig: basePvsConfig,
+      pvsConfig,
       weights: defaultWeights,
     });
     return { strategyManager: manager, mcts: mctsAI };
   }, []);
-
-  useEffect(() => {
-    strategyManager.updateConfig({ weights, pvsConfig: adaptivePvsConfig });
-  }, [strategyManager, weights, adaptivePvsConfig]);
 
   // 当前这个 player 是否由 AI 控制？
   const isAIPlayer = useCallback(
@@ -168,8 +127,8 @@ export const App: React.FC = () => {
         const r = pvsSearchBestMove(
           current,
           player,
-          weights,
-          adaptivePvsConfig,
+          defaultWeights,
+          pvsConfig,
         );
         r.debugInfo = {
           ...(r.debugInfo ?? {}),
@@ -197,7 +156,7 @@ export const App: React.FC = () => {
       r.debugInfo.engine ??= 'hybrid';
       return r;
     },
-    [strategyMode, mcts, strategyManager, weights, adaptivePvsConfig],
+    [strategyMode, mcts, strategyManager],
   );
 
   // 真正执行 AI 一手棋（假设此时轮到 player）
@@ -269,7 +228,7 @@ export const App: React.FC = () => {
           setLastAiNodes(null);
         }
 
-        perfMonitor.recordThinkTime(thinkTime, adaptivePvsConfig.maxDepth);
+        perfMonitor.recordThinkTime(thinkTime, pvsConfig.maxDepth);
 
         // 记录历史，用于右侧分析图（带上引擎 / 深度 / 节点 / VCDT 信息）
         setAiHistory(prev => [
@@ -335,36 +294,6 @@ export const App: React.FC = () => {
     },
     [aiThinking, state, isAIPlayer],
   );
-
-  const handleStartEvolution = useCallback(async () => {
-    setGaRunning(true);
-    setGaProgress([]);
-
-    try {
-      const optimizer = new SelfPlayOptimizer({
-        populationSize: gaConfig.populationSize,
-        generations: gaConfig.generations,
-        mutationRate: gaConfig.mutationRate,
-      });
-
-      const best = await optimizer.optimize(progress => {
-        setGaProgress(prev => [...prev, progress]);
-      });
-
-      setBestWeights(best);
-      setWeights(best);
-    } catch (e) {
-      console.error('自进化训练失败：', e);
-    } finally {
-      setGaRunning(false);
-    }
-  }, [gaConfig]);
-
-  const handleApplyBestWeights = useCallback(() => {
-    if (bestWeights) {
-      setWeights(bestWeights);
-    }
-  }, [bestWeights]);
 
   /**
    * 只要当前轮到的是 AI，就自动触发 AI 一手棋
@@ -556,164 +485,20 @@ export const App: React.FC = () => {
               {consoleTab === 'evolve' && (
                 <div>
                   <h3 style={{ marginTop: 0 }}>自进化训练（遗传算法）</h3>
-                  <p style={{ color: '#555', marginBottom: 8 }}>
-                    让 AI 自己对弈、迭代权重，实时把更强的估值函数同步到前端。
-                    默认配置偏重快速验证，可在下方调整代数/种群规模。
+                  <p style={{ color: '#555' }}>
+                    这里将来会接入基于遗传算法的自对弈训练系统：
+                    <br />
+                    · 随机初始化一批参数个体（权重向量）
+                    <br />
+                    · 让它们两两对弈，计算胜率/评分作为适应度
+                    <br />
+                    · 选择 &amp; 交叉 &amp; 变异，生成下一代
+                    <br />
+                    · 把最优个体同步给前端 AI 进行对弈展示
                   </p>
-
-                  <div
-                    style={{
-                      display: 'grid',
-                      gridTemplateColumns: 'repeat(2, minmax(0, 1fr))',
-                      gap: 8,
-                      marginBottom: 8,
-                    }}
-                  >
-                    <label style={{ fontSize: 12, color: '#555' }}>
-                      种群规模
-                      <input
-                        type="number"
-                        min={4}
-                        max={20}
-                        value={gaConfig.populationSize}
-                        onChange={e =>
-                          setGaConfig(cfg => ({
-                            ...cfg,
-                            populationSize: Number(e.target.value) || 4,
-                          }))
-                        }
-                        style={consoleInputStyle}
-                      />
-                    </label>
-
-                    <label style={{ fontSize: 12, color: '#555' }}>
-                      进化代数
-                      <input
-                        type="number"
-                        min={3}
-                        max={12}
-                        value={gaConfig.generations}
-                        onChange={e =>
-                          setGaConfig(cfg => ({
-                            ...cfg,
-                            generations: Number(e.target.value) || 3,
-                          }))
-                        }
-                        style={consoleInputStyle}
-                      />
-                    </label>
-
-                    <label style={{ fontSize: 12, color: '#555' }}>
-                      变异率
-                      <input
-                        type="number"
-                        min={0.01}
-                        max={0.5}
-                        step={0.01}
-                        value={gaConfig.mutationRate}
-                        onChange={e =>
-                          setGaConfig(cfg => ({
-                            ...cfg,
-                            mutationRate: Number(e.target.value) || 0.05,
-                          }))
-                        }
-                        style={consoleInputStyle}
-                      />
-                    </label>
-
-                    <div style={{ display: 'flex', gap: 8, alignItems: 'flex-end' }}>
-                      <button
-                        onClick={handleStartEvolution}
-                        disabled={gaRunning}
-                        style={consoleMainBtnStyle}
-                      >
-                        {gaRunning ? '训练中…' : '启动自进化训练'}
-                      </button>
-                      {bestWeights && (
-                        <button
-                          onClick={handleApplyBestWeights}
-                          style={{ ...consoleMainBtnStyle, background: '#0ea5e9' }}
-                        >
-                          应用最佳权重
-                        </button>
-                      )}
-                    </div>
-                  </div>
-
-                  {gaProgress.length > 0 && (
-                    <div style={{ marginBottom: 12 }}>
-                      <div style={{ fontSize: 12, color: '#666', marginBottom: 4 }}>
-                        训练进度（越高代表适应度越好）
-                      </div>
-                      {gaProgress.map(p => (
-                        <div key={p.generation} style={{ marginBottom: 6 }}>
-                          <div
-                            style={{
-                              display: 'flex',
-                              justifyContent: 'space-between',
-                              fontSize: 12,
-                              color: '#555',
-                            }}
-                          >
-                            <span>第 {p.generation + 1} 代</span>
-                            <span>
-                              best {p.bestFitness.toFixed(2)} ｜ avg
-                              {' '}
-                              {p.avgFitness.toFixed(2)}
-                            </span>
-                          </div>
-                          <div
-                            style={{
-                              height: 10,
-                              background: '#e5e7eb',
-                              borderRadius: 6,
-                              overflow: 'hidden',
-                            }}
-                          >
-                            <div
-                              style={{
-                                width: `${Math.min(
-                                  (p.bestFitness / bestProgressFitness) * 100,
-                                  100,
-                                )}%`,
-                                height: '100%',
-                                background: 'linear-gradient(90deg, #22c55e, #16a34a)',
-                              }}
-                            />
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-
-                  <div style={{ fontSize: 12, color: '#666', marginBottom: 6 }}>
-                    当前对局使用的估值权重
-                  </div>
-                  <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-                    {Object.entries(weights).map(([k, v]) => (
-                      <div
-                        key={k}
-                        style={{
-                          padding: '6px 8px',
-                          borderRadius: 8,
-                          background: 'rgba(37,99,235,0.08)',
-                          color: '#1f2937',
-                          fontSize: 12,
-                        }}
-                      >
-                        {k}: {v.toFixed(0)}
-                      </div>
-                    ))}
-                  </div>
-
-                  {bestWeights && (
-                    <div style={{ marginTop: 8, fontSize: 12, color: '#0f172a' }}>
-                      最新进化结果：
-                      {Object.entries(bestWeights)
-                        .map(([k, v]) => `${k} ${v.toFixed(0)}`)
-                        .join(' ｜ ')}
-                    </div>
-                  )}
+                  <button style={consoleMainBtnStyle}>
+                    启动自进化训练（占位）
+                  </button>
                 </div>
               )}
 
@@ -902,52 +687,6 @@ export const App: React.FC = () => {
                   <option value="auto">自动（混合策略）</option>
                   <option value="deep">深度 MCTS（更慢，体验用）</option>
                 </select>
-              </div>
-
-              <div>
-                <div style={{ fontSize: 12, color: '#666' }}>搜索参数</div>
-                <div style={{ display: 'flex', gap: 8, marginTop: 4 }}>
-                  <label style={{ fontSize: 12, color: '#444' }}>
-                    深度
-                    <input
-                      type="number"
-                      min={2}
-                      max={5}
-                      value={searchDepth}
-                      onChange={e => setSearchDepth(Number(e.target.value) || 2)}
-                      style={{
-                        width: 70,
-                        marginLeft: 6,
-                        padding: '4px 6px',
-                        borderRadius: 8,
-                        border: '1px solid #d4d4d4',
-                      }}
-                    />
-                  </label>
-                  <label style={{ fontSize: 12, color: '#444' }}>
-                    时长 (ms)
-                    <input
-                      type="number"
-                      min={500}
-                      max={6000}
-                      step={200}
-                      value={searchTimeMs}
-                      onChange={e =>
-                        setSearchTimeMs(Number(e.target.value) || basePvsConfig.timeLimitMs)
-                      }
-                      style={{
-                        width: 90,
-                        marginLeft: 6,
-                        padding: '4px 6px',
-                        borderRadius: 8,
-                        border: '1px solid #d4d4d4',
-                      }}
-                    />
-                  </label>
-                </div>
-                <div style={{ fontSize: 11, color: '#6b7280', marginTop: 2 }}>
-                  进入中后盘后自动 +1 深度、额外 400ms 思考，提升强度。
-                </div>
               </div>
 
               <div style={{ marginLeft: 'auto' }}>
@@ -1183,14 +922,4 @@ const consoleMainBtnStyle: React.CSSProperties = {
   fontSize: 13,
   cursor: 'pointer',
   marginTop: 8,
-};
-
-const consoleInputStyle: React.CSSProperties = {
-  width: '100%',
-  marginTop: 4,
-  padding: '6px 8px',
-  borderRadius: 8,
-  border: '1px solid #d1d5db',
-  fontSize: 13,
-  boxSizing: 'border-box',
 };
