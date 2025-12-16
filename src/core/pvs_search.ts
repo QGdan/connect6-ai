@@ -9,7 +9,7 @@ import type {
   SearchConfig,
   Position,
 } from '../types';
-import { applyMoveWithWinner } from './rules';
+import { applyMoveWithWinner, getStonesToPlace } from './rules';
 import { generateRZOPCandidates } from './rzop';
 import { evaluateState } from './evaluation';
 import { detectVCDT, type VCDTThreat } from './vcdt';
@@ -126,6 +126,10 @@ function switchPlayer(p: Player): Player {
   return p === 'BLACK' ? 'WHITE' : 'BLACK';
 }
 
+function posEq(a: Position, b: Position): boolean {
+  return a.x === b.x && a.y === b.y;
+}
+
 function getCurrentTime(): number {
   if (typeof performance !== 'undefined' && performance.now) {
     return performance.now();
@@ -150,7 +154,7 @@ function quiescenceSearch(
   if (standPat > alpha) alpha = standPat;
 
   const candidates = generateRZOPCandidates(state);
-  const moves = generateTwoStoneMoves(state, candidates, toMove).slice(
+  const moves = generateMovesForTurn(state, candidates, toMove).slice(
     0,
     MAX_CHILD_MOVE_COMBOS,
   );
@@ -225,7 +229,7 @@ function pvs(
   if (ttEntry) return ttEntry.score;
 
   const candidates = generateRZOPCandidates(state);
-  let moves = generateTwoStoneMoves(state, candidates, toMove);
+  let moves = generateMovesForTurn(state, candidates, toMove);
 
   if (moves.length === 0) {
     const evalScore = evaluateState(state, rootPlayer, weights);
@@ -318,6 +322,52 @@ function pvs(
 }
 
 // ===== 候选生成与排序 =====
+function generateMovesForTurn(
+  state: GameState,
+  candidates: Position[],
+  player: Player,
+): Move[] {
+  const stones = getStonesToPlace(state.moveNumber, player);
+  if (stones === 1) {
+    return generateSingleStoneMoves(state, candidates, player);
+  }
+  return generateTwoStoneMoves(state, candidates, player);
+}
+
+function generateSingleStoneMoves(
+  state: GameState,
+  candidates: Position[],
+  player: Player,
+): Move[] {
+  const moves: Move[] = [];
+  const seen = new Set<string>();
+
+  for (const pos of candidates) {
+    if (state.board[pos.y][pos.x] !== 0) continue;
+    const key = `${pos.x}_${pos.y}`;
+    if (seen.has(key)) continue;
+    seen.add(key);
+
+    moves.push({ player, positions: [pos] });
+  }
+
+  if (moves.length === 0) {
+    const size = state.board.length;
+    const center = Math.floor(size / 2);
+    for (let y = 0; y < size; y++) {
+      for (let x = 0; x < size; x++) {
+        const px = (center + x) % size;
+        const py = (center + y) % size;
+        if (state.board[py][px] === 0) {
+          return [{ player, positions: [{ x: px, y: py }] }];
+        }
+      }
+    }
+  }
+
+  return moves;
+}
+
 function generateTwoStoneMoves(
   state: GameState,
   candidates: Position[],
@@ -416,10 +466,23 @@ function generateTwoStoneMoves(
   return moves;
 }
 
-function findFallbackTwoStoneMove(
-  state: GameState,
-  player: Player,
-): Move {
+function findFallbackMove(state: GameState, player: Player): Move {
+  const stones = getStonesToPlace(state.moveNumber, player);
+  if (stones === 1) {
+    const size = state.board.length;
+    const center = Math.floor(size / 2);
+    if (state.board[center][center] === 0) {
+      return { player, positions: [{ x: center, y: center }] };
+    }
+    for (let y = 0; y < size; y++) {
+      for (let x = 0; x < size; x++) {
+        if (state.board[y][x] === 0) {
+          return { player, positions: [{ x, y }] };
+        }
+      }
+    }
+  }
+
   const empties: Position[] = [];
   for (let y = 0; y < state.board.length && empties.length < 2; y++) {
     for (let x = 0; x < state.board[y].length && empties.length < 2; x++) {
@@ -440,6 +503,7 @@ function scoreMoveForOrdering(
   depth: number,
 ): number {
   const nextState = applyMoveWithWinner(state, move);
+  const depthBonus = Math.max(0, 6 - depth) * 5;
 
   // 1. 基础评估分（主要指标）
   const evalScore = evaluateState(nextState, rootPlayer, weights);
@@ -503,7 +567,13 @@ function scoreMoveForOrdering(
   threatScore -= oppLive4 * 80_000;
 
   // 综合排序分数：基础评估 + 部分威胁权重 + 历史 / 杀手
-  return evalScore + threatScore * 0.3 + historyScore * 0.1 + killerBonus;
+  return (
+    evalScore +
+    threatScore * 0.3 +
+    historyScore * 0.1 +
+    killerBonus +
+    depthBonus
+  );
 }
 
 function orderMoves(
@@ -566,7 +636,7 @@ function buildTwoStoneMoveFromThreat(
   }
 
   // 万一 threat 里没有可下空位，就退回兜底逻辑
-  return findFallbackTwoStoneMove(state, player);
+  return findFallbackMove(state, player);
 }
 
 // 针对“对手一手两子必杀（threatLevel=1）”的专门防守：
@@ -673,6 +743,101 @@ function buildBlockMoveForOpponentDoubleWins(
   };
 }
 
+// 兼顾多重致命威胁（单点赢 / 双点必杀）的一次性防守：
+// - 根据当前可落子数（1 或 2）在威胁点组合里挑选覆盖面最佳的方案；
+// - 若能全部化解，优先返回；否则选择“消灭最多致命威胁 + 离中心更近”的落子。
+function buildBestDefenseAgainstLethals(
+  state: GameState,
+  rootPlayer: Player,
+  lethalThreats: VCDTThreat[],
+): Move | null {
+  if (lethalThreats.length === 0) return null;
+
+  const stones = getStonesToPlace(state.moveNumber, rootPlayer);
+  const opp = switchPlayer(rootPlayer);
+
+  // 候选池：所有致命威胁点 + 少量 RZOP 候选作为灵活第二子
+  const candidateMap = new Map<string, Position>();
+  for (const t of lethalThreats) {
+    for (const p of t.positions) {
+      if (state.board[p.y][p.x] !== 0) continue;
+      const k = `${p.x},${p.y}`;
+      if (!candidateMap.has(k)) candidateMap.set(k, p);
+    }
+  }
+
+  const rzop = generateRZOPCandidates(state);
+  for (let i = 0; i < Math.min(8, rzop.length); i++) {
+    const p = rzop[i];
+    const k = `${p.x},${p.y}`;
+    if (!candidateMap.has(k) && state.board[p.y][p.x] === 0) {
+      candidateMap.set(k, p);
+    }
+  }
+
+  const candidates = Array.from(candidateMap.values());
+  if (candidates.length === 0) return null;
+
+  const limit = stones === 1 ? 12 : 14; // 控制组合数量，避免爆炸
+  const limited = candidates.slice(0, limit);
+
+  const moves: Move[] = [];
+  if (stones === 1) {
+    for (const p of limited) {
+      moves.push({ player: rootPlayer, positions: [p] });
+    }
+  } else {
+    for (let i = 0; i < limited.length; i++) {
+      for (let j = i + 1; j < limited.length; j++) {
+        const p1 = limited[i];
+        const p2 = limited[j];
+        if (posEq(p1, p2)) continue;
+        moves.push({ player: rootPlayer, positions: [p1, p2] });
+      }
+    }
+  }
+
+  let best: Move | null = null;
+  let bestScore = -Infinity;
+  const center = (state.board.length - 1) / 2;
+
+  for (const mv of moves) {
+    // 落子合法性检查
+    if (mv.positions.some(p => state.board[p.y][p.x] !== 0)) continue;
+
+    const next = applyMoveWithWinner(state, mv);
+    const remaining = detectVCDT(next, opp).filter(
+      t => t.isWinning && (t.threatLevel === 0 || t.threatLevel === 1),
+    );
+    const cleared = remaining.length === 0;
+    const blockedCount = lethalThreats.length - remaining.length;
+
+    // 进攻附加分：顺手形成的我方直接/双点赢局数量
+    const ownWins = detectVCDT(next, rootPlayer).filter(
+      t => t.isWinning && (t.threatLevel === 0 || t.threatLevel === 1),
+    ).length;
+
+    // 越靠近中心越好（轻微偏好）
+    const centerScore = mv.positions.reduce(
+      (s, p) => s - (Math.abs(p.x - center) + Math.abs(p.y - center)),
+      0,
+    );
+
+    const score =
+      blockedCount * 1_000 +
+      (cleared ? 5_000 : 0) +
+      ownWins * 80 +
+      centerScore;
+
+    if (score > bestScore) {
+      bestScore = score;
+      best = mv;
+    }
+  }
+
+  return best;
+}
+
 
 function findVcdtRootMove(
   state: GameState,
@@ -690,6 +855,23 @@ function findVcdtRootMove(
       move: buildTwoStoneMoveFromThreat(state, rootPlayer, myWin),
       reason: 'own_win',
     };
+  }
+
+  // ①.b 对方存在多个致命威胁（单点赢 / 双点必杀）：
+  const oppLethals = oppThreats.filter(
+    t => t.isWinning && (t.threatLevel === 0 || t.threatLevel === 1),
+  );
+  if (oppLethals.length > 0) {
+    const mv = buildBestDefenseAgainstLethals(state, rootPlayer, oppLethals);
+    if (mv) {
+      return {
+        move: mv,
+        reason:
+          mv.positions.length === 1
+            ? 'block_opp_lethal_single'
+            : 'block_opp_lethal_combo',
+      };
+    }
   }
 
   // ② 对方一手两子必杀（threatLevel = 1）→ 先算最少防守点
@@ -799,10 +981,10 @@ export function pvsSearchBestMove(
 
   // 1）RZOP 生成根候选
   const candidates = generateRZOPCandidates(rootState);
-  let moveCombos = generateTwoStoneMoves(rootState, candidates, rootPlayer);
+  let moveCombos = generateMovesForTurn(rootState, candidates, rootPlayer);
 
   if (moveCombos.length === 0) {
-    const fallback = findFallbackTwoStoneMove(rootState, rootPlayer);
+    const fallback = findFallbackMove(rootState, rootPlayer);
     return {
       move: fallback,
       score: evaluateState(rootState, rootPlayer, weights),

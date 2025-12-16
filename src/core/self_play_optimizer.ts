@@ -9,6 +9,13 @@ interface GAConfig {
   mutationRate: number;
 }
 
+export interface SelfPlayProgress {
+  generation: number;
+  bestFitness: number;
+  avgFitness: number;
+  champion: EvaluationWeights;
+}
+
 export class SelfPlayOptimizer {
   // ★ 显式字段
   private gaConfig: GAConfig;
@@ -17,23 +24,29 @@ export class SelfPlayOptimizer {
     this.gaConfig = gaConfig;
   }
 
-  async optimize(): Promise<EvaluationWeights> {
+  async optimize(
+    onGeneration?: (progress: SelfPlayProgress) => void,
+  ): Promise<EvaluationWeights> {
     let population = this.initPopulation();
 
     for (let gen = 0; gen < this.gaConfig.generations; gen++) {
       const fitness = await this.evaluatePopulation(population);
+
+      if (onGeneration) {
+        const { bestFitness, bestIdx, avg } = summarizeFitness(fitness);
+        onGeneration({
+          generation: gen,
+          bestFitness,
+          avgFitness: avg,
+          champion: population[bestIdx],
+        });
+      }
+
       population = this.nextGeneration(population, fitness);
     }
 
     const fitness = await this.evaluatePopulation(population);
-    let bestIdx = 0;
-    let bestFit = -Infinity;
-    fitness.forEach((f, i) => {
-      if (f > bestFit) {
-        bestFit = f;
-        bestIdx = i;
-      }
-    });
+    const { bestIdx } = summarizeFitness(fitness);
 
     return population[bestIdx];
   }
@@ -140,4 +153,21 @@ function mutate(w: EvaluationWeights, rate: number) {
       (w as any)[key] *= 1 + (Math.random() - 0.5) * 0.2;
     }
   }
+}
+
+function summarizeFitness(fitness: number[]) {
+  let bestFit = -Infinity;
+  let bestIdx = 0;
+  let sum = 0;
+
+  fitness.forEach((f, i) => {
+    sum += f;
+    if (f > bestFit) {
+      bestFit = f;
+      bestIdx = i;
+    }
+  });
+
+  const avg = fitness.length === 0 ? 0 : sum / fitness.length;
+  return { bestFitness: bestFit, bestIdx, avg };
 }
