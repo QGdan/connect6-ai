@@ -84,6 +84,7 @@ export const App: React.FC = () => {
     mutationRate: 0.12,
   });
   const [gaProgress, setGaProgress] = useState<SelfPlayProgress[]>([]);
+  const [gaLogs, setGaLogs] = useState<{ id: string; text: string }[]>([]);
   const [gaRunning, setGaRunning] = useState(false);
   const [bestWeights, setBestWeights] = useState<EvaluationWeights | null>(null);
   const [modelProfile, setModelProfile] = useState<{
@@ -398,6 +399,12 @@ export const App: React.FC = () => {
   const handleStartEvolution = useCallback(async () => {
     setGaRunning(true);
     setGaProgress([]);
+    setGaLogs([
+      {
+        id: `${Date.now()}-start`,
+        text: '自进化训练已启动，正在生成初始种群…',
+      },
+    ]);
 
     try {
       const optimizer = new SelfPlayOptimizer({
@@ -408,12 +415,32 @@ export const App: React.FC = () => {
 
       const best = await optimizer.optimize(progress => {
         setGaProgress(prev => [...prev, progress]);
+        setGaLogs(prev => [
+          {
+            id: `${Date.now()}-${progress.generation}`,
+            text: `第 ${progress.generation + 1} 代：最佳 ${progress.bestFitness.toFixed(
+              2,
+            )}，平均 ${progress.avgFitness.toFixed(2)}，正在评估冠军权重…`,
+          },
+          ...prev.slice(0, 39),
+        ]);
       });
 
       setBestWeights(best);
       setWeights(best);
+      setGaLogs(prev => [
+        {
+          id: `${Date.now()}-best`,
+          text: '自进化完成，已应用最佳权重到当前对局。',
+        },
+        ...prev,
+      ]);
     } catch (e) {
       console.error('自进化训练失败：', e);
+      setGaLogs(prev => [
+        { id: `${Date.now()}-err`, text: `自进化训练失败：${(e as Error).message}` },
+        ...prev,
+      ]);
     } finally {
       setGaRunning(false);
     }
@@ -649,38 +676,128 @@ export const App: React.FC = () => {
               flexDirection: isNarrowLayout ? 'column' : 'row',
             }}
           >
-            {/* 左：训练可视化棋盘（只读） */}
+            {/* 左：自博弈摘要 + 日志 */}
             <div
               style={{
                 flex: 1,
                 display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
+                flexDirection: 'column',
+                gap: 12,
               }}
             >
               <div
                 style={{
-                  padding: 12,
+                  padding: 14,
                   borderRadius: 16,
-                  background: 'rgba(255,255,255,0.9)',
+                  background: 'rgba(255,255,255,0.94)',
                   boxShadow: '0 6px 18px rgba(0,0,0,0.08)',
-                  minWidth: isNarrowLayout ? '100%' : 480,
                   width: '100%',
                 }}
               >
-                <div style={{ marginBottom: 8, fontSize: 13 }}>
-                  训练可视化棋盘（同步当前局面，暂不支持手动操作）
+                <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                  <div style={{ fontWeight: 'bold' }}>自博弈训练概览</div>
+                  <div
+                    style={{
+                      padding: '4px 8px',
+                      borderRadius: 10,
+                      background: gaRunning ? 'rgba(16,185,129,0.12)' : 'rgba(107,114,128,0.12)',
+                      color: gaRunning ? '#0f766e' : '#374151',
+                      fontSize: 12,
+                    }}
+                  >
+                    {gaRunning ? '训练中' : '待机'}
+                  </div>
                 </div>
-                <GameBoard
-                  state={state}
-                  onHumanMove={() => {}}
-                  lastAIMove={lastAIMove?.move}
-                  currentPlayerIsHuman={false}
-                  stonesToPlace={getStonesToPlace(
-                    state.moveNumber,
-                    state.currentPlayer,
+                <div
+                  style={{
+                    display: 'grid',
+                    gridTemplateColumns: isNarrowLayout ? '1fr' : '1fr 1fr',
+                    gap: 10,
+                    marginTop: 10,
+                  }}
+                >
+                  <div>
+                    <div style={{ color: '#6b7280', fontSize: 12 }}>进度</div>
+                    <div style={{ fontWeight: 600 }}>{gaProgress.length} / {gaConfig.generations} 代</div>
+                  </div>
+                  <div>
+                    <div style={{ color: '#6b7280', fontSize: 12 }}>当前最佳适应度</div>
+                    <div style={{ fontWeight: 600 }}>
+                      {gaProgress.length
+                        ? Math.max(...gaProgress.map(p => p.bestFitness)).toFixed(2)
+                        : '—'}
+                    </div>
+                  </div>
+                  <div>
+                    <div style={{ color: '#6b7280', fontSize: 12 }}>最新平均适应度</div>
+                    <div style={{ fontWeight: 600 }}>
+                      {gaProgress.length ? gaProgress[gaProgress.length - 1].avgFitness.toFixed(2) : '—'}
+                    </div>
+                  </div>
+                  <div>
+                    <div style={{ color: '#6b7280', fontSize: 12 }}>模型来源</div>
+                    <div style={{ fontWeight: 600 }}>{modelProfile.name}</div>
+                  </div>
+                </div>
+                <div style={{ marginTop: 12, fontSize: 12, color: '#4b5563' }}>
+                  训练完成后会自动将最佳权重同步到当前对局，左侧日志展示每代评估结果，便于排查自对弈是否正常执行。
+                </div>
+              </div>
+
+              <div
+                style={{
+                  padding: 14,
+                  borderRadius: 16,
+                  background: 'rgba(255,255,255,0.94)',
+                  boxShadow: '0 6px 18px rgba(0,0,0,0.08)',
+                  flex: 1,
+                  minHeight: isNarrowLayout ? 220 : 260,
+                  display: 'flex',
+                  flexDirection: 'column',
+                }}
+              >
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <div style={{ fontWeight: 'bold' }}>自博弈日志</div>
+                  <button
+                    style={{ fontSize: 12, color: '#2563eb', background: 'transparent', border: 'none', cursor: 'pointer' }}
+                    onClick={() => setGaLogs([])}
+                    disabled={gaLogs.length === 0}
+                  >
+                    清空
+                  </button>
+                </div>
+                <div
+                  style={{
+                    marginTop: 10,
+                    borderRadius: 10,
+                    background: '#f3f4f6',
+                    padding: 10,
+                    flex: 1,
+                    overflowY: 'auto',
+                    fontSize: 12,
+                    color: '#111827',
+                  }}
+                >
+                  {gaLogs.length === 0 && (
+                    <div style={{ color: '#6b7280' }}>
+                      启动训练后将实时显示自对弈日志（每代最佳/平均适应度、异常信息等），便于快速判断训练质量。
+                    </div>
                   )}
-                />
+                  {gaLogs.map(log => (
+                    <div
+                      key={log.id}
+                      style={{
+                        padding: '6px 8px',
+                        background: 'white',
+                        borderRadius: 8,
+                        boxShadow: '0 1px 3px rgba(0,0,0,0.04)',
+                        marginBottom: 8,
+                      }}
+                    >
+                      {log.text}
+                    </div>
+                  ))}
+                </div>
               </div>
             </div>
 
