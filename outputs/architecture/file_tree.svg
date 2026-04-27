@@ -1,0 +1,190 @@
+﻿<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="980" height="3210" viewBox="0 0 980 3210">
+  <defs>
+    <filter id="shadow" x="-20%" y="-20%" width="140%" height="140%">
+      <feDropShadow dx="0" dy="2" stdDeviation="4" flood-color="#000000" flood-opacity="0.18"/>
+    </filter>
+    <marker id="arrow" markerWidth="10" markerHeight="10" refX="9" refY="3" orient="auto" markerUnits="strokeWidth">
+      <path d="M0,0 L9,3 L0,6 Z" fill="#334155"/>
+    </marker>
+  </defs>
+  <rect width="100%" height="100%" fill="#ffffff"/>
+<rect x="0" y="0" width="980" height="72" fill="#0f172a"/>
+<text x="28" y="44" font-family="Segoe UI, Microsoft YaHei, Arial, sans-serif" font-size="20" font-weight="600" fill="#ffffff">文件清单（树）</text>
+<text x="28" y="64" font-family="Segoe UI, Microsoft YaHei, Arial, sans-serif" font-size="12" fill="#cbd5e1">已省略：node_modules/、dist/（可缩放 SVG）</text>
+<rect x="0" y="72" width="100%" height="1" fill="#e2e8f0"/>
+<text x="28" y="100" font-family="JetBrains Mono, Consolas, Courier New, monospace" font-size="13" fill="#0f172a" xml:space="preserve">
+<tspan x="28" dy="0">connect6-5.0/</tspan>
+<tspan x="28" dy="18">├─ .vscode/</tspan>
+<tspan x="28" dy="18">│  └─ settings.json</tspan>
+<tspan x="28" dy="18">├─ outputs/</tspan>
+<tspan x="28" dy="18">│  ├─ architecture/</tspan>
+<tspan x="28" dy="18">│  ├─ selfplay_c6.txt</tspan>
+<tspan x="28" dy="18">│  └─ tmp_regression.txt</tspan>
+<tspan x="28" dy="18">├─ public/</tspan>
+<tspan x="28" dy="18">│  └─ vite.svg</tspan>
+<tspan x="28" dy="18">├─ scripts/</tspan>
+<tspan x="28" dy="18">│  ├─ build_opening_book.ts</tspan>
+<tspan x="28" dy="18">│  ├─ double_live3_pocket_sanity.ts</tspan>
+<tspan x="28" dy="18">│  ├─ double_live3_sanity.ts</tspan>
+<tspan x="28" dy="18">│  ├─ ga_repro_sanity.ts</tspan>
+<tspan x="28" dy="18">│  ├─ kifu_analysis.ts</tspan>
+<tspan x="28" dy="18">│  ├─ kifu_server.js</tspan>
+<tspan x="28" dy="18">│  ├─ quiet_eval_sanity.ts</tspan>
+<tspan x="28" dy="18">│  ├─ selfcheck_integration.ts</tspan>
+<tspan x="28" dy="18">│  ├─ selfcheck_pvs_hash.ts</tspan>
+<tspan x="28" dy="18">│  ├─ selfcheck_pvs_root.ts</tspan>
+<tspan x="28" dy="18">│  ├─ selfcheck_road_encoding.ts</tspan>
+<tspan x="28" dy="18">│  ├─ selfcheck_selfplay_regression.ts</tspan>
+<tspan x="28" dy="18">│  ├─ selfcheck_threat_cache.ts</tspan>
+<tspan x="28" dy="18">│  ├─ selfcheck_threat_merge.ts</tspan>
+<tspan x="28" dy="18">│  ├─ selfplay_export.ts</tspan>
+<tspan x="28" dy="18">│  ├─ selfplay_samples_export.ts</tspan>
+<tspan x="28" dy="18">│  ├─ smoke.ts</tspan>
+<tspan x="28" dy="18">│  ├─ span_sanity.ts</tspan>
+<tspan x="28" dy="18">│  ├─ tactical_sanity.ts</tspan>
+<tspan x="28" dy="18">│  ├─ threat_cache_check.ts</tspan>
+<tspan x="28" dy="18">│  ├─ train_value_model.ts</tspan>
+<tspan x="28" dy="18">│  ├─ vcdt_bench.ts</tspan>
+<tspan x="28" dy="18">│  ├─ weights_audit.ts</tspan>
+<tspan x="28" dy="18">│  └─ zobrist_check.ts</tspan>
+<tspan x="28" dy="18">├─ src/</tspan>
+<tspan x="28" dy="18">│  ├─ assets/</tspan>
+<tspan x="28" dy="18">│  │  └─ react.svg</tspan>
+<tspan x="28" dy="18">│  ├─ components/</tspan>
+<tspan x="28" dy="18">│  │  ├─ trainer/</tspan>
+<tspan x="28" dy="18">│  │  │  ├─ CheckpointTimeline.tsx</tspan>
+<tspan x="28" dy="18">│  │  │  ├─ CompareDrawer.tsx</tspan>
+<tspan x="28" dy="18">│  │  │  ├─ DatasetQualityPanel.tsx</tspan>
+<tspan x="28" dy="18">│  │  │  ├─ EvalPanel.tsx</tspan>
+<tspan x="28" dy="18">│  │  │  ├─ GameReplayPanel.tsx</tspan>
+<tspan x="28" dy="18">│  │  │  ├─ KpiGrid.tsx</tspan>
+<tspan x="28" dy="18">│  │  │  ├─ LossChartTabs.tsx</tspan>
+<tspan x="28" dy="18">│  │  │  ├─ PipelineStepper.tsx</tspan>
+<tspan x="28" dy="18">│  │  │  ├─ ResourceMonitor.tsx</tspan>
+<tspan x="28" dy="18">│  │  │  ├─ RunHeader.tsx</tspan>
+<tspan x="28" dy="18">│  │  │  └─ StatusBadge.tsx</tspan>
+<tspan x="28" dy="18">│  │  └─ ui/</tspan>
+<tspan x="28" dy="18">│  │     ├─ badge.tsx</tspan>
+<tspan x="28" dy="18">│  │     ├─ button.tsx</tspan>
+<tspan x="28" dy="18">│  │     ├─ card.tsx</tspan>
+<tspan x="28" dy="18">│  │     ├─ input.tsx</tspan>
+<tspan x="28" dy="18">│  │     ├─ label.tsx</tspan>
+<tspan x="28" dy="18">│  │     ├─ progress.tsx</tspan>
+<tspan x="28" dy="18">│  │     ├─ select.tsx</tspan>
+<tspan x="28" dy="18">│  │     ├─ separator.tsx</tspan>
+<tspan x="28" dy="18">│  │     ├─ sheet.tsx</tspan>
+<tspan x="28" dy="18">│  │     ├─ skeleton.tsx</tspan>
+<tspan x="28" dy="18">│  │     ├─ switch.tsx</tspan>
+<tspan x="28" dy="18">│  │     └─ tabs.tsx</tspan>
+<tspan x="28" dy="18">│  ├─ core/</tspan>
+<tspan x="28" dy="18">│  │  ├─ benchmark.ts</tspan>
+<tspan x="28" dy="18">│  │  ├─ board_coords.ts</tspan>
+<tspan x="28" dy="18">│  │  ├─ connect6_ai.ts</tspan>
+<tspan x="28" dy="18">│  │  ├─ coop_mode.ts</tspan>
+<tspan x="28" dy="18">│  │  ├─ evaluation.ts</tspan>
+<tspan x="28" dy="18">│  │  ├─ game_state.ts</tspan>
+<tspan x="28" dy="18">│  │  ├─ genetic_optimizer.ts</tspan>
+<tspan x="28" dy="18">│  │  ├─ line_potential.ts</tspan>
+<tspan x="28" dy="18">│  │  ├─ local_candidates.ts</tspan>
+<tspan x="28" dy="18">│  │  ├─ mcts_ai_engine.ts</tspan>
+<tspan x="28" dy="18">│  │  ├─ mcts_worker_pool.ts</tspan>
+<tspan x="28" dy="18">│  │  ├─ opening_book.ts</tspan>
+<tspan x="28" dy="18">│  │  ├─ opening_book_data.ts</tspan>
+<tspan x="28" dy="18">│  │  ├─ pattern_evaluator.ts</tspan>
+<tspan x="28" dy="18">│  │  ├─ pattern_library.ts</tspan>
+<tspan x="28" dy="18">│  │  ├─ pos_key.ts</tspan>
+<tspan x="28" dy="18">│  │  ├─ position_utils.ts</tspan>
+<tspan x="28" dy="18">│  │  ├─ pvs_search.ts</tspan>
+<tspan x="28" dy="18">│  │  ├─ pvs_worker_client.ts</tspan>
+<tspan x="28" dy="18">│  │  ├─ resnet_ai.ts</tspan>
+<tspan x="28" dy="18">│  │  ├─ rng.ts</tspan>
+<tspan x="28" dy="18">│  │  ├─ road_encoding.ts</tspan>
+<tspan x="28" dy="18">│  │  ├─ road_suggestions.ts</tspan>
+<tspan x="28" dy="18">│  │  ├─ rules.ts</tspan>
+<tspan x="28" dy="18">│  │  ├─ rzop.ts</tspan>
+<tspan x="28" dy="18">│  │  ├─ self_play.ts</tspan>
+<tspan x="28" dy="18">│  │  ├─ self_play_optimizer.ts</tspan>
+<tspan x="28" dy="18">│  │  ├─ smart_defense.ts</tspan>
+<tspan x="28" dy="18">│  │  ├─ state_serialization.ts</tspan>
+<tspan x="28" dy="18">│  │  ├─ symmetry.ts</tspan>
+<tspan x="28" dy="18">│  │  ├─ threat_analyzer.ts</tspan>
+<tspan x="28" dy="18">│  │  ├─ threat_service.ts</tspan>
+<tspan x="28" dy="18">│  │  ├─ threat_utils.ts</tspan>
+<tspan x="28" dy="18">│  │  ├─ training_dataset.ts</tspan>
+<tspan x="28" dy="18">│  │  ├─ training_sample_io.ts</tspan>
+<tspan x="28" dy="18">│  │  ├─ training_worker_client.ts</tspan>
+<tspan x="28" dy="18">│  │  ├─ value_features.ts</tspan>
+<tspan x="28" dy="18">│  │  ├─ value_model_export.ts</tspan>
+<tspan x="28" dy="18">│  │  ├─ value_model_snapshot.ts</tspan>
+<tspan x="28" dy="18">│  │  ├─ value_trainer.ts</tspan>
+<tspan x="28" dy="18">│  │  ├─ vcdt.ts</tspan>
+<tspan x="28" dy="18">│  │  ├─ vcf_vct_solver.ts</tspan>
+<tspan x="28" dy="18">│  │  └─ zobrist.ts</tspan>
+<tspan x="28" dy="18">│  ├─ lib/</tspan>
+<tspan x="28" dy="18">│  │  └─ utils.ts</tspan>
+<tspan x="28" dy="18">│  ├─ models/</tspan>
+<tspan x="28" dy="18">│  │  └─ value_model.ts</tspan>
+<tspan x="28" dy="18">│  ├─ strategy/</tspan>
+<tspan x="28" dy="18">│  │  ├─ hybrid_strategy.ts</tspan>
+<tspan x="28" dy="18">│  │  ├─ performance_monitor.ts</tspan>
+<tspan x="28" dy="18">│  │  └─ position_complexity.ts</tspan>
+<tspan x="28" dy="18">│  ├─ types/</tspan>
+<tspan x="28" dy="18">│  │  ├─ iconv-lite.d.ts</tspan>
+<tspan x="28" dy="18">│  │  ├─ js-yaml.d.ts</tspan>
+<tspan x="28" dy="18">│  │  └─ trainer.ts</tspan>
+<tspan x="28" dy="18">│  ├─ ui/</tspan>
+<tspan x="28" dy="18">│  │  ├─ AIAnalysisPanel.tsx</tspan>
+<tspan x="28" dy="18">│  │  ├─ GameBoard.tsx</tspan>
+<tspan x="28" dy="18">│  │  ├─ ReportGenerator.tsx</tspan>
+<tspan x="28" dy="18">│  │  ├─ Roadmap.tsx</tspan>
+<tspan x="28" dy="18">│  │  └─ TrainerConsolePanel.tsx</tspan>
+<tspan x="28" dy="18">│  ├─ utils/</tspan>
+<tspan x="28" dy="18">│  │  └─ kifu.ts</tspan>
+<tspan x="28" dy="18">│  ├─ workers/</tspan>
+<tspan x="28" dy="18">│  │  ├─ mcts_worker.ts</tspan>
+<tspan x="28" dy="18">│  │  ├─ pvs_worker.ts</tspan>
+<tspan x="28" dy="18">│  │  └─ selfplay_worker.ts</tspan>
+<tspan x="28" dy="18">│  ├─ App.css</tspan>
+<tspan x="28" dy="18">│  ├─ App.tsx</tspan>
+<tspan x="28" dy="18">│  ├─ index.css</tspan>
+<tspan x="28" dy="18">│  ├─ main.tsx</tspan>
+<tspan x="28" dy="18">│  └─ types.ts</tspan>
+<tspan x="28" dy="18">├─ tests/</tspan>
+<tspan x="28" dy="18">│  ├─ datasets/</tspan>
+<tspan x="28" dy="18">│  │  ├─ strategic_midgame.json</tspan>
+<tspan x="28" dy="18">│  │  ├─ stress_cases.json</tspan>
+<tspan x="28" dy="18">│  │  └─ tactical_vcdt.json</tspan>
+<tspan x="28" dy="18">│  ├─ fixtures/</tspan>
+<tspan x="28" dy="18">│  │  └─ selfplay_regression_sample.txt</tspan>
+<tspan x="28" dy="18">│  ├─ benchmark_test.py</tspan>
+<tspan x="28" dy="18">│  ├─ eval_threat_report_selftest.ts</tspan>
+<tspan x="28" dy="18">│  ├─ mcts_opening_selftest.ts</tspan>
+<tspan x="28" dy="18">│  ├─ opening_book_selftest.ts</tspan>
+<tspan x="28" dy="18">│  ├─ pvs_aspiration_selftest.ts</tspan>
+<tspan x="28" dy="18">│  ├─ pvs_threat_root_selftest.ts</tspan>
+<tspan x="28" dy="18">│  ├─ rzop_threat_selftest.ts</tspan>
+<tspan x="28" dy="18">│  ├─ smart_defense_selftest.ts</tspan>
+<tspan x="28" dy="18">│  ├─ threat_analyzer_selftest.ts</tspan>
+<tspan x="28" dy="18">│  ├─ threat_patterns_selftest.ts</tspan>
+<tspan x="28" dy="18">│  ├─ vcdt_dead_selftest.ts</tspan>
+<tspan x="28" dy="18">│  └─ vcdt_win2_live4_selftest.ts</tspan>
+<tspan x="28" dy="18">├─ .gitignore</tspan>
+<tspan x="28" dy="18">├─ config.yaml</tspan>
+<tspan x="28" dy="18">├─ eslint.config.js</tspan>
+<tspan x="28" dy="18">├─ index.html</tspan>
+<tspan x="28" dy="18">├─ OPTIMIZATION_CHECKLIST.md</tspan>
+<tspan x="28" dy="18">├─ package.json</tspan>
+<tspan x="28" dy="18">├─ package-lock.json</tspan>
+<tspan x="28" dy="18">├─ postcss.config.cjs</tspan>
+<tspan x="28" dy="18">├─ README.md</tspan>
+<tspan x="28" dy="18">├─ SRC_CORE.md</tspan>
+<tspan x="28" dy="18">├─ tailwind.config.ts</tspan>
+<tspan x="28" dy="18">├─ task_progress.md</tspan>
+<tspan x="28" dy="18">├─ tsconfig.app.json</tspan>
+<tspan x="28" dy="18">├─ tsconfig.json</tspan>
+<tspan x="28" dy="18">├─ tsconfig.node.json</tspan>
+<tspan x="28" dy="18">└─ vite.config.ts</tspan>
+</text>
+</svg>
+

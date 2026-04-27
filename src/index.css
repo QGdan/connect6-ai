@@ -1,0 +1,90 @@
+@import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --font-sans: "Space Grotesk";
+    --font-mono: "JetBrains Mono";
+    --background: 210 20% 98%;
+    --foreground: 222 47% 11%;
+    --card: 0 0% 100%;
+    --card-foreground: 222 47% 11%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 222 47% 11%;
+    --primary: 202 80% 32%;
+    --primary-foreground: 0 0% 100%;
+    --secondary: 210 16% 92%;
+    --secondary-foreground: 222 47% 11%;
+    --muted: 210 16% 94%;
+    --muted-foreground: 215 16% 46%;
+    --accent: 186 70% 86%;
+    --accent-foreground: 222 47% 11%;
+    --destructive: 0 84% 60%;
+    --destructive-foreground: 0 0% 100%;
+    --border: 214 13% 91%;
+    --input: 214 13% 91%;
+    --ring: 202 80% 32%;
+    --chart-1: 199 89% 48%;
+    --chart-2: 173 80% 38%;
+    --chart-3: 38 92% 50%;
+    --chart-4: 14 88% 56%;
+    --chart-5: 202 80% 32%;
+    --radius: 0.9rem;
+    font-family: var(--font-sans), system-ui, sans-serif;
+    line-height: 1.5;
+    font-weight: 400;
+    text-rendering: optimizeLegibility;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  .dark {
+    --background: 222 47% 8%;
+    --foreground: 210 20% 96%;
+    --card: 222 47% 10%;
+    --card-foreground: 210 20% 96%;
+    --popover: 222 47% 10%;
+    --popover-foreground: 210 20% 96%;
+    --primary: 190 86% 46%;
+    --primary-foreground: 0 0% 100%;
+    --secondary: 217 19% 20%;
+    --secondary-foreground: 210 20% 96%;
+    --muted: 217 19% 16%;
+    --muted-foreground: 215 14% 65%;
+    --accent: 187 74% 20%;
+    --accent-foreground: 210 20% 96%;
+    --destructive: 0 72% 51%;
+    --destructive-foreground: 0 0% 100%;
+    --border: 217 19% 20%;
+    --input: 217 19% 20%;
+    --ring: 190 86% 46%;
+    --chart-1: 190 86% 46%;
+    --chart-2: 173 75% 44%;
+    --chart-3: 43 96% 56%;
+    --chart-4: 20 90% 60%;
+    --chart-5: 210 92% 62%;
+  }
+
+  * {
+    @apply border-border;
+    box-sizing: border-box;
+  }
+
+  body {
+    @apply bg-background text-foreground;
+    margin: 0;
+    min-height: 100%;
+    touch-action: manipulation;
+    -webkit-user-select: text;
+    user-select: text;
+    -webkit-text-size-adjust: 100%;
+    text-size-adjust: 100%;
+  }
+
+  #root {
+    min-height: 100vh;
+  }
+}

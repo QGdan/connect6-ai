@@ -1,0 +1,10 @@
+[
+  {
+    "id": "stress-001",
+    "state": {
+      "board": [],
+      "currentPlayer": "WHITE",
+      "moveNumber": 30
+    }
+  }
+]

@@ -1,0 +1,11 @@
+[
+  {
+    "id": "tac-001",
+    "state": {
+      "board": [],
+      "currentPlayer": "BLACK",
+      "moveNumber": 10
+    },
+    "expectedWinner": "BLACK"
+  }
+]

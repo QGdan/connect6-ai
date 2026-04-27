@@ -1,0 +1,10 @@
+[
+  {
+    "id": "str-001",
+    "state": {
+      "board": [],
+      "currentPlayer": "BLACK",
+      "moveNumber": 20
+    }
+  }
+]

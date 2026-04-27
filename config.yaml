@@ -1,0 +1,23 @@
+# Connect6 AI configuration
+weights:
+  road_3_score: 10000
+  road_4_score: 50000
+  live4_score: 10000
+  live5_score: 200000
+  vcdt_bonus: 5000
+pvsDepth: 6
+quickDepth: 4
+mctsBranch: 40
+budgets:
+  fast:
+    l0l1: 0.25
+    l2: 0.6
+    l3: 0.15
+  normal:
+    l0l1: 0.2
+    l2: 0.6
+    l3: 0.2
+  deep:
+    l0l1: 0.15
+    l2: 0.6
+    l3: 0.25
