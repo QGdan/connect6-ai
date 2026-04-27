@@ -890,7 +890,7 @@ const MainApp: React.FC = () => {
         return;
       }
 
-      let workingState = current;
+      const workingState = current;
       const actionId = ++aiActionIdRef.current;
       const expectedStones =
         turnMeta?.stonesToPlace ??
@@ -1124,13 +1124,13 @@ const MainApp: React.FC = () => {
       try {
         const moveEnd = nowMs();
         const elapsed = Math.max(0, moveEnd - turnStartMs);
-        pushHistorySnapshot();
         const nextResult = tryApplyMoveWithWinner(state, move as Move);
         if (!nextResult.ok) {
           console.error('人类落子应用规则时出错：', nextResult.error);
           return;
         }
         const nextState = nextResult.state;
+        pushHistorySnapshot();
         setState(nextState);
         setGameMoves(prev => [...prev, move as Move]);
         if (move.player === 'BLACK') {
@@ -1514,13 +1514,14 @@ const MainApp: React.FC = () => {
       if (!update) return;
       setTrainingProgress(update);
       if (update.phase === 'train' && typeof update.loss === 'number') {
+        const loss = update.loss;
         setTrainingLosses(prev => {
           const next = [...prev];
           const idx =
             typeof update.epoch === 'number'
               ? Math.max(0, update.epoch - 1)
               : next.length;
-          next[idx] = update.loss;
+          next[idx] = loss;
           return next;
         });
       }
@@ -2247,7 +2248,7 @@ const MainApp: React.FC = () => {
                     gap: 12,
                   }}
                 >
-                  {consoleTab === 'deep' ? (
+                  {(consoleTab as string) === 'deep' ? (
                 <>
                   <div
                     style={{
@@ -3050,7 +3051,7 @@ const MainApp: React.FC = () => {
                 </div>
               )}
 
-              {consoleTab === 'deep' && (
+              {(consoleTab as string) === 'deep' && (
                 <div>
                   <h3 style={{ marginTop: 0 }}>深度学习训练器</h3>
                   <div style={{ marginBottom: 10, fontSize: 12, color: '#444' }}>

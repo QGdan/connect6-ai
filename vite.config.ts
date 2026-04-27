@@ -5,6 +5,9 @@ import { nodePolyfills } from 'vite-plugin-node-polyfills'
 // https://vite.dev/config/
 export default defineConfig({
   plugins: [react(), nodePolyfills()],
+  build: {
+    emptyOutDir: false,
+  },
   optimizeDeps: {
     include: ['iconv-lite', 'buffer'],
   },

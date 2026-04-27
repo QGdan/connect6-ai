@@ -1,4 +1,4 @@
-import type { GameState, Player } from '../types';
+import type { Cell, GameState, Player } from '../types';
 import { BOARD_SIZE } from '../types';
 import { computeZobristHash } from './zobrist';
 import { computeValueFeatures } from './value_features';
@@ -11,15 +11,16 @@ export type JsonlSampleRecord = {
   result: number;
 };
 
-export function decodeBoard(serialized: string): number[][] | null {
+export function decodeBoard(serialized: string): Cell[][] | null {
   if (serialized.length !== BOARD_SIZE * BOARD_SIZE) return null;
-  const board: number[][] = [];
+  const board: Cell[][] = [];
   let idx = 0;
   for (let y = 0; y < BOARD_SIZE; y += 1) {
-    const row: number[] = [];
+    const row: Cell[] = [];
     for (let x = 0; x < BOARD_SIZE; x += 1) {
       const val = Number(serialized[idx]);
-      row.push(Number.isFinite(val) ? val : 0);
+      if (val !== 0 && val !== 1 && val !== 2) return null;
+      row.push(val);
       idx += 1;
     }
     board.push(row);

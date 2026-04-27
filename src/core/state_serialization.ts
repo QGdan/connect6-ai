@@ -51,5 +51,5 @@ export function deserializeGameState(
       zobristHash: input.zobristHash,
     };
   }
-  return input;
+  return input as GameState;
 }

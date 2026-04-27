@@ -234,7 +234,7 @@ export class MCTSConnect6AI {
     let node = root;
 
     while (node.isExpanded && node.children.size > 0) {
-      node = this.selectChild(node);
+      node = this.selectChild(node, rootPlayer);
       path.push(node);
     }
 
@@ -249,15 +249,16 @@ export class MCTSConnect6AI {
     }
   }
 
-  private selectChild(node: MCTSNode): MCTSNode {
+  private selectChild(node: MCTSNode, rootPlayer: Player): MCTSNode {
     let bestChild: MCTSNode | null = null;
     let bestScore = -Infinity;
     const parentVisits = Math.max(1, node.visits);
 
     for (const [, child] of node.children) {
       const q = child.visits > 0 ? child.wins / child.visits : 0;
+      const exploitation = node.player === rootPlayer ? q : 1 - q;
       const u = 1.4 * child.prior * Math.sqrt(parentVisits) / (1 + child.visits);
-      const score = q + u;
+      const score = exploitation + u;
       if (score > bestScore) {
         bestScore = score;
         bestChild = child;

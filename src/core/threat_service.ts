@@ -1,6 +1,7 @@
 import type { GameState, Player } from '../types';
 import { analyzeThreats, mergeThreatReports } from './threat_analyzer';
 import type { ThreatReport } from './pattern_library';
+import { computeZobristHash } from './zobrist';
 
 export type { ThreatReport } from './pattern_library';
 
@@ -42,7 +43,8 @@ function trimCache(cache: Map<bigint, ThreatReport>): void {
 
 function getCachedReport(state: GameState, player: Player): ThreatReport {
   const cache = cacheFor(player);
-  const hash = state.zobristHash;
+  const computedHash = computeZobristHash(state.board, state.currentPlayer);
+  const hash = state.zobristHash === computedHash ? state.zobristHash : computedHash;
   const hit = cache.get(hash);
   if (hit) {
     cacheHits += 1;

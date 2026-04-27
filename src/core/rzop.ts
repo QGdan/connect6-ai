@@ -276,13 +276,15 @@ export function generateRZOPCandidates(state: GameState): Position[] {
     uniqueEmptyPoints(state, [...ends.values()], seen, urgent);
   }
 
-  if (urgent.length >= topK) {
-    return sortByScore(urgent.slice(0, topK), scorePosition);
+  const limit = Math.min(topK, 16);
+
+  if (urgent.length >= limit) {
+    return sortByScore(urgent.slice(0, limit), scorePosition);
   }
 
   const nonUrgent: Position[] = [];
-  const remaining = topK - urgent.length;
-  if (remaining <= 0) return urgent;
+  const remainingSlots = () => limit - urgent.length - nonUrgent.length;
+  if (remainingSlots() <= 0) return urgent;
 
   const myLive3 = collectKeyPointsByType(myReport, ['LIVE3']);
   if (myLive3.length >= 2) {
@@ -291,7 +293,7 @@ export function generateRZOPCandidates(state: GameState): Position[] {
       sortByCenter(myLive3),
       seen,
       nonUrgent,
-      remaining,
+      remainingSlots(),
     );
   }
 
@@ -305,23 +307,25 @@ export function generateRZOPCandidates(state: GameState): Position[] {
       'LIVE3',
     ]),
   );
-  uniqueEmptyPoints(state, initiative, seen, nonUrgent, remaining);
-
-  if (nonUrgent.length < remaining) {
-    const attackPoints = sortByCenter(myReport.attackPoints);
-    uniqueEmptyPoints(state, attackPoints, seen, nonUrgent, remaining);
+  if (remainingSlots() > 0) {
+    uniqueEmptyPoints(state, initiative, seen, nonUrgent, remainingSlots());
   }
 
-  if (nonUrgent.length < remaining) {
+  if (remainingSlots() > 0) {
+    const attackPoints = sortByCenter(myReport.attackPoints);
+    uniqueEmptyPoints(state, attackPoints, seen, nonUrgent, remainingSlots());
+  }
+
+  if (remainingSlots() > 0) {
     const neighbors = sortByCenter(computeRelevantZones(state, nearRadius));
     uniqueEmptyPoints(
       state,
       neighbors,
       seen,
       nonUrgent,
-      remaining,
+      remainingSlots(),
     );
   }
 
-  return sortByScore([...urgent, ...nonUrgent], scorePosition);
+  return sortByScore([...urgent, ...nonUrgent], scorePosition).slice(0, limit);
 }

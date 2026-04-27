@@ -20,7 +20,7 @@ export type FeatureName =
 
 export type FeatureVector = Record<FeatureName, number>;
 
-export interface PatternWeights extends Partial<Record<FeatureName, number>> {}
+export type PatternWeights = Partial<Record<FeatureName, number>>;
 
 export interface EvalResult {
   score: number;

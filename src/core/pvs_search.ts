@@ -2,6 +2,7 @@
 
 import type {
   AIMoveDecision,
+  AIMoveDebugInfo,
   EvaluationWeights,
   GameState,
   Move,
@@ -9,7 +10,11 @@ import type {
   SearchConfig,
   Position,
 } from '../types';
-import { applyMoveWithWinner, getStonesToPlace } from './rules';
+import {
+  applyMoveWithWinner,
+  getStonesToPlace,
+  tryApplyMoveWithWinner,
+} from './rules';
 import { generateRZOPCandidates } from './rzop';
 import { evaluateFromThreatReport } from './evaluation';
 import { mergeThreatReports } from './threat_analyzer';
@@ -2402,7 +2407,8 @@ export function pvsSearchBestMove(
     ...weights,
     threat_defense_weight: 1,
   } as EvaluationWeights & { threat_defense_weight: number };
-  const multithreadingHint = config.useMultithreading
+  const multithreadingHint: Partial<Pick<AIMoveDebugInfo, 'multithreading'>> =
+    config.useMultithreading
     ? { multithreading: 'requested_but_unsupported' }
     : {};
 
@@ -2442,10 +2448,10 @@ export function pvsSearchBestMove(
   );
   const deadline = getCurrentTime() + timeBudget;
   const patternEval = new PatternEvaluator(rootPlayer);
-  let tacticalHintMoves: Move[] = [];
+  const tacticalHintMoves: Move[] = [];
   let tacticalHintSet: Set<string> | undefined;
   let tacticalHintInfo: Record<string, number | string> | undefined;
-  let forcedDefenseMoves: Move[] = [];
+  const forcedDefenseMoves: Move[] = [];
   let forcedDefenseInfo: Record<string, number | string> | undefined;
 
   // 0锛夋牴鑺傜偣 VCDT锛氬繀鏉€ / 蹇呴槻 / 娲诲洓
@@ -2745,7 +2751,7 @@ export function pvsSearchBestMove(
 
     // Connect6: 对手只有“单条活三”时，避免“二子两头都堵”的俗手；
     // 提前塞入“挡一头 + 顺手造势”的候选，让主搜更容易找到反击型防守。
-    let counterLive3HintMoves: Move[] = [];
+    const counterLive3HintMoves: Move[] = [];
     let counterLive3HintInfo: Record<string, number> | undefined;
     const stones = requiredStones;
     if (stones === 2 && !hasOpponentInitiative(rootState, rootOppReport)) {
@@ -2900,7 +2906,7 @@ export function pvsSearchBestMove(
       baseBeta = normalizedBase.beta;
 
       let alpha = baseAlpha;
-      let beta = baseBeta;
+      const beta = baseBeta;
       lastAspirationWindows.push({ depth: d, retry, alpha, beta });
       let failed = false;
       iterBestMove = bestMove;

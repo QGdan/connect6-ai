@@ -82,8 +82,13 @@ class WorkerPool {
     const task = this.inflight.get(id);
     if (!task) return;
     this.inflight.delete(id);
-    if (error) task.reject(error);
-    else task.resolve(decision);
+    if (error) {
+      task.reject(error);
+    } else if (!decision) {
+      task.reject(new Error('PVS worker returned no decision'));
+    } else {
+      task.resolve(decision);
+    }
     this.runNext();
   }
 
@@ -192,7 +197,7 @@ export class SelfPlayOptimizer {
         const challengers = this.initPopulation(champion);
         let championScoreNorm = 1;
 
-        challengersLoop: for (let idx = 0; idx < challengers.length; idx++) {
+        for (let idx = 0; idx < challengers.length; idx++) {
           const challenger = challengers[idx];
           this.onProgress?.(
             `Gen ${gen + 1}: 挑战者${idx + 1} 权重 ${formatWeights(challenger)}`,

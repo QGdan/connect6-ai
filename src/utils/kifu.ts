@@ -99,7 +99,7 @@ export async function saveKifuTextToFile(filename: string, text: string) {
           alert('棋谱已保存到桌面/game records：' + j.path);
           return;
         }
-      } catch (e) {
+      } catch {
         // ignore parse error and fall back
       }
     }

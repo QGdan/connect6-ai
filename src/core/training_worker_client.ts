@@ -41,8 +41,8 @@ export type EvaluationStats = {
   elapsedMs: number;
 };
 
-type PendingRequest = {
-  resolve: (result: unknown) => void;
+type PendingRequest<T = unknown> = {
+  resolve: (result: T | PromiseLike<T>) => void;
   reject: (error: Error) => void;
   onProgress?: (update: ProgressUpdate) => void;
 };
@@ -201,7 +201,7 @@ export class TrainingWorkerClient {
     }
     const id = ++this.seq;
     return new Promise<T>((resolve, reject) => {
-      this.pending.set(id, { resolve, reject, onProgress });
+      this.pending.set(id, { resolve: resolve as PendingRequest['resolve'], reject, onProgress });
       this.worker?.postMessage({ id, ...payload });
     });
   }

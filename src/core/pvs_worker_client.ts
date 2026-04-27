@@ -99,8 +99,13 @@ class PvsWorkerClient {
     const task = this.inflight;
     if (!task || data?.id !== task.id) return;
     this.inflight = null;
-    if (data.error) task.reject(data.error);
-    else task.resolve(data.decision as AIMoveDecision);
+    if (data.error) {
+      task.reject(data.error);
+    } else if (!data.decision) {
+      task.reject(new Error('PVS worker returned no decision'));
+    } else {
+      task.resolve(data.decision);
+    }
     this.runNext();
   }
 

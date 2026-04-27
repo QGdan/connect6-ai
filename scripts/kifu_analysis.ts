@@ -68,7 +68,7 @@ function analyzeKifu(raw: string): void {
     }
 
     clearThreatCache();
-    const { my, opp } = analyzeBothSidesCached(state, state.currentPlayer);
+    const { opp } = analyzeBothSidesCached(state, state.currentPlayer);
     const isWhiteTurn = state.currentPlayer === 'WHITE';
     if (isWhiteTurn) {
       const moveSet = new Set(move.positions.map(p => posIdx(p.x, p.y)));
