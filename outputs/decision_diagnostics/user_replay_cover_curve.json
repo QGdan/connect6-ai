@@ -1,0 +1,596 @@
+{
+  "rows": [
+    {
+      "fileId": "20260428_005817",
+      "aiTurn": 1,
+      "moveNumber": 1,
+      "preBlackWin1": 0,
+      "preBlackWin2": 0,
+      "preBlackWin2Cover": 0
+    },
+    {
+      "fileId": "20260428_005817",
+      "aiTurn": 2,
+      "moveNumber": 3,
+      "preBlackWin1": 0,
+      "preBlackWin2": 0,
+      "preBlackWin2Cover": 0
+    },
+    {
+      "fileId": "20260428_005817",
+      "aiTurn": 3,
+      "moveNumber": 5,
+      "preBlackWin1": 0,
+      "preBlackWin2": 0,
+      "preBlackWin2Cover": 0
+    },
+    {
+      "fileId": "20260428_005817",
+      "aiTurn": 4,
+      "moveNumber": 7,
+      "preBlackWin1": 0,
+      "preBlackWin2": 0,
+      "preBlackWin2Cover": 0
+    },
+    {
+      "fileId": "20260428_005817",
+      "aiTurn": 5,
+      "moveNumber": 9,
+      "preBlackWin1": 0,
+      "preBlackWin2": 0,
+      "preBlackWin2Cover": 0
+    },
+    {
+      "fileId": "20260428_005817",
+      "aiTurn": 6,
+      "moveNumber": 11,
+      "preBlackWin1": 0,
+      "preBlackWin2": 0,
+      "preBlackWin2Cover": 0
+    },
+    {
+      "fileId": "20260428_005817",
+      "aiTurn": 7,
+      "moveNumber": 13,
+      "preBlackWin1": 0,
+      "preBlackWin2": 3,
+      "preBlackWin2Cover": 2
+    },
+    {
+      "fileId": "20260428_005817",
+      "aiTurn": 8,
+      "moveNumber": 15,
+      "preBlackWin1": 0,
+      "preBlackWin2": 1,
+      "preBlackWin2Cover": 1
+    },
+    {
+      "fileId": "20260428_005817",
+      "aiTurn": 9,
+      "moveNumber": 17,
+      "preBlackWin1": 0,
+      "preBlackWin2": 1,
+      "preBlackWin2Cover": 1
+    },
+    {
+      "fileId": "20260428_005817",
+      "aiTurn": 10,
+      "moveNumber": 19,
+      "preBlackWin1": 0,
+      "preBlackWin2": 0,
+      "preBlackWin2Cover": 0
+    },
+    {
+      "fileId": "20260428_005817",
+      "aiTurn": 11,
+      "moveNumber": 21,
+      "preBlackWin1": 0,
+      "preBlackWin2": 2,
+      "preBlackWin2Cover": 2
+    },
+    {
+      "fileId": "20260428_005817",
+      "aiTurn": 12,
+      "moveNumber": 23,
+      "preBlackWin1": 0,
+      "preBlackWin2": 3,
+      "preBlackWin2Cover": 2
+    },
+    {
+      "fileId": "20260428_005817",
+      "aiTurn": 13,
+      "moveNumber": 25,
+      "preBlackWin1": 0,
+      "preBlackWin2": 0,
+      "preBlackWin2Cover": 0
+    },
+    {
+      "fileId": "20260428_005817",
+      "aiTurn": 14,
+      "moveNumber": 27,
+      "preBlackWin1": 0,
+      "preBlackWin2": 2,
+      "preBlackWin2Cover": 1
+    },
+    {
+      "fileId": "20260428_005817",
+      "aiTurn": 15,
+      "moveNumber": 29,
+      "preBlackWin1": 0,
+      "preBlackWin2": 1,
+      "preBlackWin2Cover": 1
+    },
+    {
+      "fileId": "20260428_005817",
+      "aiTurn": 16,
+      "moveNumber": 31,
+      "preBlackWin1": 0,
+      "preBlackWin2": 1,
+      "preBlackWin2Cover": 1
+    },
+    {
+      "fileId": "20260428_005817",
+      "aiTurn": 17,
+      "moveNumber": 33,
+      "preBlackWin1": 0,
+      "preBlackWin2": 2,
+      "preBlackWin2Cover": 2
+    },
+    {
+      "fileId": "20260428_005817",
+      "aiTurn": 18,
+      "moveNumber": 35,
+      "preBlackWin1": 0,
+      "preBlackWin2": 2,
+      "preBlackWin2Cover": 1
+    },
+    {
+      "fileId": "20260428_005817",
+      "aiTurn": 19,
+      "moveNumber": 37,
+      "preBlackWin1": 0,
+      "preBlackWin2": 0,
+      "preBlackWin2Cover": 0
+    },
+    {
+      "fileId": "20260428_005817",
+      "aiTurn": 20,
+      "moveNumber": 39,
+      "preBlackWin1": 0,
+      "preBlackWin2": 1,
+      "preBlackWin2Cover": 1
+    },
+    {
+      "fileId": "20260428_005817",
+      "aiTurn": 21,
+      "moveNumber": 41,
+      "preBlackWin1": 0,
+      "preBlackWin2": 1,
+      "preBlackWin2Cover": 1
+    },
+    {
+      "fileId": "20260428_005817",
+      "aiTurn": 22,
+      "moveNumber": 43,
+      "preBlackWin1": 0,
+      "preBlackWin2": 1,
+      "preBlackWin2Cover": 1
+    },
+    {
+      "fileId": "20260428_005817",
+      "aiTurn": 23,
+      "moveNumber": 45,
+      "preBlackWin1": 0,
+      "preBlackWin2": 2,
+      "preBlackWin2Cover": 1
+    },
+    {
+      "fileId": "20260428_005817",
+      "aiTurn": 24,
+      "moveNumber": 47,
+      "preBlackWin1": 0,
+      "preBlackWin2": 5,
+      "preBlackWin2Cover": 3
+    },
+    {
+      "fileId": "20260428_011821",
+      "aiTurn": 1,
+      "moveNumber": 1,
+      "preBlackWin1": 0,
+      "preBlackWin2": 0,
+      "preBlackWin2Cover": 0
+    },
+    {
+      "fileId": "20260428_011821",
+      "aiTurn": 2,
+      "moveNumber": 3,
+      "preBlackWin1": 0,
+      "preBlackWin2": 0,
+      "preBlackWin2Cover": 0
+    },
+    {
+      "fileId": "20260428_011821",
+      "aiTurn": 3,
+      "moveNumber": 5,
+      "preBlackWin1": 0,
+      "preBlackWin2": 0,
+      "preBlackWin2Cover": 0
+    },
+    {
+      "fileId": "20260428_011821",
+      "aiTurn": 4,
+      "moveNumber": 7,
+      "preBlackWin1": 0,
+      "preBlackWin2": 0,
+      "preBlackWin2Cover": 0
+    },
+    {
+      "fileId": "20260428_011821",
+      "aiTurn": 5,
+      "moveNumber": 9,
+      "preBlackWin1": 0,
+      "preBlackWin2": 0,
+      "preBlackWin2Cover": 0
+    },
+    {
+      "fileId": "20260428_011821",
+      "aiTurn": 6,
+      "moveNumber": 11,
+      "preBlackWin1": 0,
+      "preBlackWin2": 2,
+      "preBlackWin2Cover": 2
+    },
+    {
+      "fileId": "20260428_011821",
+      "aiTurn": 7,
+      "moveNumber": 13,
+      "preBlackWin1": 0,
+      "preBlackWin2": 3,
+      "preBlackWin2Cover": 2
+    },
+    {
+      "fileId": "20260428_011821",
+      "aiTurn": 8,
+      "moveNumber": 15,
+      "preBlackWin1": 0,
+      "preBlackWin2": 3,
+      "preBlackWin2Cover": 2
+    },
+    {
+      "fileId": "20260428_011821",
+      "aiTurn": 9,
+      "moveNumber": 17,
+      "preBlackWin1": 0,
+      "preBlackWin2": 1,
+      "preBlackWin2Cover": 1
+    },
+    {
+      "fileId": "20260428_011821",
+      "aiTurn": 10,
+      "moveNumber": 19,
+      "preBlackWin1": 2,
+      "preBlackWin2": 6,
+      "preBlackWin2Cover": 5
+    },
+    {
+      "fileId": "20260428_190312",
+      "aiTurn": 1,
+      "moveNumber": 1,
+      "preBlackWin1": 0,
+      "preBlackWin2": 0,
+      "preBlackWin2Cover": 0
+    },
+    {
+      "fileId": "20260428_190312",
+      "aiTurn": 2,
+      "moveNumber": 3,
+      "preBlackWin1": 0,
+      "preBlackWin2": 0,
+      "preBlackWin2Cover": 0
+    },
+    {
+      "fileId": "20260428_190312",
+      "aiTurn": 3,
+      "moveNumber": 5,
+      "preBlackWin1": 0,
+      "preBlackWin2": 0,
+      "preBlackWin2Cover": 0
+    },
+    {
+      "fileId": "20260428_190312",
+      "aiTurn": 4,
+      "moveNumber": 7,
+      "preBlackWin1": 0,
+      "preBlackWin2": 3,
+      "preBlackWin2Cover": 2
+    },
+    {
+      "fileId": "20260428_190312",
+      "aiTurn": 5,
+      "moveNumber": 9,
+      "preBlackWin1": 0,
+      "preBlackWin2": 1,
+      "preBlackWin2Cover": 1
+    },
+    {
+      "fileId": "20260428_190312",
+      "aiTurn": 6,
+      "moveNumber": 11,
+      "preBlackWin1": 0,
+      "preBlackWin2": 0,
+      "preBlackWin2Cover": 0
+    },
+    {
+      "fileId": "20260428_190312",
+      "aiTurn": 7,
+      "moveNumber": 13,
+      "preBlackWin1": 0,
+      "preBlackWin2": 3,
+      "preBlackWin2Cover": 2
+    },
+    {
+      "fileId": "20260428_190312",
+      "aiTurn": 8,
+      "moveNumber": 15,
+      "preBlackWin1": 0,
+      "preBlackWin2": 3,
+      "preBlackWin2Cover": 2
+    },
+    {
+      "fileId": "20260428_190312",
+      "aiTurn": 9,
+      "moveNumber": 17,
+      "preBlackWin1": 0,
+      "preBlackWin2": 1,
+      "preBlackWin2Cover": 1
+    },
+    {
+      "fileId": "20260428_190312",
+      "aiTurn": 10,
+      "moveNumber": 19,
+      "preBlackWin1": 0,
+      "preBlackWin2": 4,
+      "preBlackWin2Cover": 3
+    },
+    {
+      "fileId": "20260428_205113",
+      "aiTurn": 1,
+      "moveNumber": 1,
+      "preBlackWin1": 0,
+      "preBlackWin2": 0,
+      "preBlackWin2Cover": 0
+    },
+    {
+      "fileId": "20260428_205113",
+      "aiTurn": 2,
+      "moveNumber": 3,
+      "preBlackWin1": 0,
+      "preBlackWin2": 0,
+      "preBlackWin2Cover": 0
+    },
+    {
+      "fileId": "20260428_205113",
+      "aiTurn": 3,
+      "moveNumber": 5,
+      "preBlackWin1": 0,
+      "preBlackWin2": 0,
+      "preBlackWin2Cover": 0
+    },
+    {
+      "fileId": "20260428_205113",
+      "aiTurn": 4,
+      "moveNumber": 7,
+      "preBlackWin1": 0,
+      "preBlackWin2": 0,
+      "preBlackWin2Cover": 0
+    },
+    {
+      "fileId": "20260428_205113",
+      "aiTurn": 5,
+      "moveNumber": 9,
+      "preBlackWin1": 0,
+      "preBlackWin2": 0,
+      "preBlackWin2Cover": 0
+    },
+    {
+      "fileId": "20260428_205113",
+      "aiTurn": 6,
+      "moveNumber": 11,
+      "preBlackWin1": 0,
+      "preBlackWin2": 2,
+      "preBlackWin2Cover": 2
+    },
+    {
+      "fileId": "20260428_205113",
+      "aiTurn": 7,
+      "moveNumber": 13,
+      "preBlackWin1": 0,
+      "preBlackWin2": 3,
+      "preBlackWin2Cover": 2
+    },
+    {
+      "fileId": "20260428_205113",
+      "aiTurn": 8,
+      "moveNumber": 15,
+      "preBlackWin1": 0,
+      "preBlackWin2": 4,
+      "preBlackWin2Cover": 3
+    },
+    {
+      "fileId": "20260428_205113",
+      "aiTurn": 9,
+      "moveNumber": 17,
+      "preBlackWin1": 1,
+      "preBlackWin2": 1,
+      "preBlackWin2Cover": 1
+    },
+    {
+      "fileId": "20260428_205113",
+      "aiTurn": 10,
+      "moveNumber": 19,
+      "preBlackWin1": 0,
+      "preBlackWin2": 3,
+      "preBlackWin2Cover": 2
+    },
+    {
+      "fileId": "20260428_205113",
+      "aiTurn": 11,
+      "moveNumber": 21,
+      "preBlackWin1": 0,
+      "preBlackWin2": 2,
+      "preBlackWin2Cover": 1
+    },
+    {
+      "fileId": "20260428_205113",
+      "aiTurn": 12,
+      "moveNumber": 23,
+      "preBlackWin1": 0,
+      "preBlackWin2": 1,
+      "preBlackWin2Cover": 1
+    },
+    {
+      "fileId": "20260428_205113",
+      "aiTurn": 13,
+      "moveNumber": 25,
+      "preBlackWin1": 0,
+      "preBlackWin2": 3,
+      "preBlackWin2Cover": 2
+    },
+    {
+      "fileId": "20260428_205113",
+      "aiTurn": 14,
+      "moveNumber": 27,
+      "preBlackWin1": 0,
+      "preBlackWin2": 1,
+      "preBlackWin2Cover": 1
+    },
+    {
+      "fileId": "20260428_205113",
+      "aiTurn": 15,
+      "moveNumber": 29,
+      "preBlackWin1": 0,
+      "preBlackWin2": 0,
+      "preBlackWin2Cover": 0
+    },
+    {
+      "fileId": "20260428_205113",
+      "aiTurn": 16,
+      "moveNumber": 31,
+      "preBlackWin1": 0,
+      "preBlackWin2": 3,
+      "preBlackWin2Cover": 2
+    },
+    {
+      "fileId": "20260428_205113",
+      "aiTurn": 17,
+      "moveNumber": 33,
+      "preBlackWin1": 0,
+      "preBlackWin2": 3,
+      "preBlackWin2Cover": 2
+    },
+    {
+      "fileId": "20260428_205113",
+      "aiTurn": 18,
+      "moveNumber": 35,
+      "preBlackWin1": 0,
+      "preBlackWin2": 0,
+      "preBlackWin2Cover": 0
+    },
+    {
+      "fileId": "20260428_205113",
+      "aiTurn": 19,
+      "moveNumber": 37,
+      "preBlackWin1": 0,
+      "preBlackWin2": 3,
+      "preBlackWin2Cover": 2
+    },
+    {
+      "fileId": "20260428_205113",
+      "aiTurn": 20,
+      "moveNumber": 39,
+      "preBlackWin1": 0,
+      "preBlackWin2": 3,
+      "preBlackWin2Cover": 2
+    },
+    {
+      "fileId": "20260428_205113",
+      "aiTurn": 21,
+      "moveNumber": 41,
+      "preBlackWin1": 0,
+      "preBlackWin2": 3,
+      "preBlackWin2Cover": 2
+    },
+    {
+      "fileId": "20260428_205113",
+      "aiTurn": 22,
+      "moveNumber": 43,
+      "preBlackWin1": 0,
+      "preBlackWin2": 1,
+      "preBlackWin2Cover": 1
+    },
+    {
+      "fileId": "20260428_205113",
+      "aiTurn": 23,
+      "moveNumber": 45,
+      "preBlackWin1": 0,
+      "preBlackWin2": 1,
+      "preBlackWin2Cover": 1
+    },
+    {
+      "fileId": "20260428_205113",
+      "aiTurn": 24,
+      "moveNumber": 47,
+      "preBlackWin1": 0,
+      "preBlackWin2": 1,
+      "preBlackWin2Cover": 1
+    },
+    {
+      "fileId": "20260428_205113",
+      "aiTurn": 25,
+      "moveNumber": 49,
+      "preBlackWin1": 0,
+      "preBlackWin2": 0,
+      "preBlackWin2Cover": 0
+    },
+    {
+      "fileId": "20260428_205113",
+      "aiTurn": 26,
+      "moveNumber": 51,
+      "preBlackWin1": 0,
+      "preBlackWin2": 0,
+      "preBlackWin2Cover": 0
+    },
+    {
+      "fileId": "20260428_205113",
+      "aiTurn": 27,
+      "moveNumber": 53,
+      "preBlackWin1": 0,
+      "preBlackWin2": 1,
+      "preBlackWin2Cover": 1
+    },
+    {
+      "fileId": "20260428_205113",
+      "aiTurn": 28,
+      "moveNumber": 55,
+      "preBlackWin1": 0,
+      "preBlackWin2": 3,
+      "preBlackWin2Cover": 2
+    },
+    {
+      "fileId": "20260428_205113",
+      "aiTurn": 29,
+      "moveNumber": 57,
+      "preBlackWin1": 0,
+      "preBlackWin2": 2,
+      "preBlackWin2Cover": 1
+    },
+    {
+      "fileId": "20260428_205113",
+      "aiTurn": 30,
+      "moveNumber": 59,
+      "preBlackWin1": 0,
+      "preBlackWin2": 5,
+      "preBlackWin2Cover": 3
+    }
+  ]
+}

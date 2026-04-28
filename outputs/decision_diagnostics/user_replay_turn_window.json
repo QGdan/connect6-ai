@@ -1,0 +1,463 @@
+{
+  "rows": [
+    {
+      "fileId": "20260428_005817",
+      "aiTurn": 19,
+      "moveNumber": 37,
+      "actual": "(M,11) (P,8)",
+      "safeCount": 41328,
+      "safeSamples": [
+        "(A,19) (B,19)",
+        "(A,19) (C,19)",
+        "(A,19) (D,19)"
+      ],
+      "blackThreatAfterActual": {
+        "win1": 0,
+        "win2": 0
+      }
+    },
+    {
+      "fileId": "20260428_005817",
+      "aiTurn": 20,
+      "moveNumber": 39,
+      "actual": "(L,12) (I,12)",
+      "safeCount": 565,
+      "safeSamples": [
+        "(A,19) (L,12)",
+        "(A,19) (O,12)",
+        "(B,19) (L,12)"
+      ],
+      "blackThreatAfterActual": {
+        "win1": 0,
+        "win2": 0
+      }
+    },
+    {
+      "fileId": "20260428_005817",
+      "aiTurn": 21,
+      "moveNumber": 41,
+      "actual": "(Q,12) (G,11)",
+      "safeCount": 557,
+      "safeSamples": [
+        "(A,19) (Q,12)",
+        "(A,19) (R,12)",
+        "(B,19) (Q,12)"
+      ],
+      "blackThreatAfterActual": {
+        "win1": 0,
+        "win2": 0
+      }
+    },
+    {
+      "fileId": "20260428_005817",
+      "aiTurn": 22,
+      "moveNumber": 43,
+      "actual": "(M,16) (H,12)",
+      "safeCount": 549,
+      "safeSamples": [
+        "(A,19) (M,17)",
+        "(A,19) (M,16)",
+        "(B,19) (M,17)"
+      ],
+      "blackThreatAfterActual": {
+        "win1": 0,
+        "win2": 0
+      }
+    },
+    {
+      "fileId": "20260428_005817",
+      "aiTurn": 23,
+      "moveNumber": 45,
+      "actual": "(K,16) (F,9)",
+      "safeCount": 272,
+      "safeSamples": [
+        "(A,19) (K,16)",
+        "(B,19) (K,16)",
+        "(C,19) (K,16)"
+      ],
+      "blackThreatAfterActual": {
+        "win1": 0,
+        "win2": 0
+      }
+    },
+    {
+      "fileId": "20260428_005817",
+      "aiTurn": 24,
+      "moveNumber": 47,
+      "actual": "(L,13) (L,16)",
+      "safeCount": 0,
+      "safeSamples": [],
+      "blackThreatAfterActual": {
+        "win1": 0,
+        "win2": 1
+      }
+    },
+    {
+      "fileId": "20260428_011821",
+      "aiTurn": 5,
+      "moveNumber": 9,
+      "actual": "(H,10) (G,10)",
+      "safeCount": 58996,
+      "safeSamples": [
+        "(A,19) (B,19)",
+        "(A,19) (C,19)",
+        "(A,19) (D,19)"
+      ],
+      "blackThreatAfterActual": {
+        "win1": 0,
+        "win2": 0
+      }
+    },
+    {
+      "fileId": "20260428_011821",
+      "aiTurn": 6,
+      "moveNumber": 11,
+      "actual": "(L,15) (H,15)",
+      "safeCount": 4,
+      "safeSamples": [
+        "(H,16) (M,16)",
+        "(H,16) (L,15)",
+        "(M,16) (H,15)"
+      ],
+      "blackThreatAfterActual": {
+        "win1": 0,
+        "win2": 0
+      }
+    },
+    {
+      "fileId": "20260428_011821",
+      "aiTurn": 7,
+      "moveNumber": 13,
+      "actual": "(J,11) (E,11)",
+      "safeCount": 3,
+      "safeSamples": [
+        "(D,11) (J,11)",
+        "(E,11) (J,11)",
+        "(E,11) (K,11)"
+      ],
+      "blackThreatAfterActual": {
+        "win1": 0,
+        "win2": 0
+      }
+    },
+    {
+      "fileId": "20260428_011821",
+      "aiTurn": 8,
+      "moveNumber": 15,
+      "actual": "(F,10) (K,15)",
+      "safeCount": 3,
+      "safeSamples": [
+        "(L,16) (F,10)",
+        "(K,15) (F,10)",
+        "(K,15) (E,9)"
+      ],
+      "blackThreatAfterActual": {
+        "win1": 0,
+        "win2": 0
+      }
+    },
+    {
+      "fileId": "20260428_011821",
+      "aiTurn": 9,
+      "moveNumber": 17,
+      "actual": "(L,13) (K,11)",
+      "safeCount": 653,
+      "safeSamples": [
+        "(A,19) (L,13)",
+        "(A,19) (M,13)",
+        "(B,19) (L,13)"
+      ],
+      "blackThreatAfterActual": {
+        "win1": 0,
+        "win2": 0
+      }
+    },
+    {
+      "fileId": "20260428_011821",
+      "aiTurn": 10,
+      "moveNumber": 19,
+      "actual": "(J,15) (D,9)",
+      "safeCount": 0,
+      "safeSamples": [],
+      "blackThreatAfterActual": {
+        "win1": 0,
+        "win2": 4
+      }
+    },
+    {
+      "fileId": "20260428_190312",
+      "aiTurn": 5,
+      "moveNumber": 9,
+      "actual": "(C,5) (I,9)",
+      "safeCount": 685,
+      "safeSamples": [
+        "(A,19) (C,5)",
+        "(A,19) (B,4)",
+        "(B,19) (C,5)"
+      ],
+      "blackThreatAfterActual": {
+        "win1": 0,
+        "win2": 0
+      }
+    },
+    {
+      "fileId": "20260428_190312",
+      "aiTurn": 6,
+      "moveNumber": 11,
+      "actual": "(G,6) (E,8)",
+      "safeCount": 57630,
+      "safeSamples": [
+        "(A,19) (B,19)",
+        "(A,19) (C,19)",
+        "(A,19) (D,19)"
+      ],
+      "blackThreatAfterActual": {
+        "win1": 0,
+        "win2": 0
+      }
+    },
+    {
+      "fileId": "20260428_190312",
+      "aiTurn": 7,
+      "moveNumber": 13,
+      "actual": "(H,7) (C,7)",
+      "safeCount": 3,
+      "safeSamples": [
+        "(B,7) (H,7)",
+        "(C,7) (H,7)",
+        "(C,7) (I,7)"
+      ],
+      "blackThreatAfterActual": {
+        "win1": 0,
+        "win2": 0
+      }
+    },
+    {
+      "fileId": "20260428_190312",
+      "aiTurn": 8,
+      "moveNumber": 15,
+      "actual": "(C,3) (D,5)",
+      "safeCount": 2,
+      "safeSamples": [
+        "(D,5) (C,3)",
+        "(C,3) (D,2)"
+      ],
+      "blackThreatAfterActual": {
+        "win1": 0,
+        "win2": 0
+      }
+    },
+    {
+      "fileId": "20260428_190312",
+      "aiTurn": 9,
+      "moveNumber": 17,
+      "actual": "(E,3) (H,9)",
+      "safeCount": 653,
+      "safeSamples": [
+        "(A,19) (E,3)",
+        "(A,19) (E,2)",
+        "(B,19) (E,3)"
+      ],
+      "blackThreatAfterActual": {
+        "win1": 0,
+        "win2": 0
+      }
+    },
+    {
+      "fileId": "20260428_190312",
+      "aiTurn": 10,
+      "moveNumber": 19,
+      "actual": "(H,6) (C,11)",
+      "safeCount": 0,
+      "safeSamples": [],
+      "blackThreatAfterActual": {
+        "win1": 0,
+        "win2": 1
+      }
+    },
+    {
+      "fileId": "20260428_205113",
+      "aiTurn": 3,
+      "moveNumber": 5,
+      "actual": "(K,9) (M,12)",
+      "safeCount": 61776,
+      "safeSamples": [
+        "(A,19) (B,19)",
+        "(A,19) (C,19)",
+        "(A,19) (D,19)"
+      ],
+      "blackThreatAfterActual": {
+        "win1": 0,
+        "win2": 0
+      }
+    },
+    {
+      "fileId": "20260428_205113",
+      "aiTurn": 4,
+      "moveNumber": 7,
+      "actual": "(G,13) (I,10)",
+      "safeCount": 60378,
+      "safeSamples": [
+        "(A,19) (B,19)",
+        "(A,19) (C,19)",
+        "(A,19) (D,19)"
+      ],
+      "blackThreatAfterActual": {
+        "win1": 0,
+        "win2": 0
+      }
+    },
+    {
+      "fileId": "20260428_205113",
+      "aiTurn": 5,
+      "moveNumber": 9,
+      "actual": "(H,10) (G,10)",
+      "safeCount": 58996,
+      "safeSamples": [
+        "(A,19) (B,19)",
+        "(A,19) (C,19)",
+        "(A,19) (D,19)"
+      ],
+      "blackThreatAfterActual": {
+        "win1": 0,
+        "win2": 0
+      }
+    },
+    {
+      "fileId": "20260428_205113",
+      "aiTurn": 6,
+      "moveNumber": 11,
+      "actual": "(L,15) (H,15)",
+      "safeCount": 4,
+      "safeSamples": [
+        "(H,16) (M,16)",
+        "(H,16) (L,15)",
+        "(M,16) (H,15)"
+      ],
+      "blackThreatAfterActual": {
+        "win1": 0,
+        "win2": 0
+      }
+    },
+    {
+      "fileId": "20260428_205113",
+      "aiTurn": 7,
+      "moveNumber": 13,
+      "actual": "(L,14) (G,14)",
+      "safeCount": 3,
+      "safeSamples": [
+        "(F,14) (L,14)",
+        "(G,14) (L,14)",
+        "(G,14) (M,14)"
+      ],
+      "blackThreatAfterActual": {
+        "win1": 0,
+        "win2": 0
+      }
+    },
+    {
+      "fileId": "20260428_205113",
+      "aiTurn": 8,
+      "moveNumber": 15,
+      "actual": "(F,10) (K,15)",
+      "safeCount": 0,
+      "safeSamples": [],
+      "blackThreatAfterActual": {
+        "win1": 0,
+        "win2": 1
+      }
+    },
+    {
+      "fileId": "20260428_205113",
+      "aiTurn": 25,
+      "moveNumber": 49,
+      "actual": "(D,16) (N,5)",
+      "safeCount": 34716,
+      "safeSamples": [
+        "(A,19) (B,19)",
+        "(A,19) (C,19)",
+        "(A,19) (D,19)"
+      ],
+      "blackThreatAfterActual": {
+        "win1": 0,
+        "win2": 0
+      }
+    },
+    {
+      "fileId": "20260428_205113",
+      "aiTurn": 26,
+      "moveNumber": 51,
+      "actual": "(M,3) (O,5)",
+      "safeCount": 33670,
+      "safeSamples": [
+        "(A,19) (B,19)",
+        "(A,19) (C,19)",
+        "(A,19) (D,19)"
+      ],
+      "blackThreatAfterActual": {
+        "win1": 0,
+        "win2": 0
+      }
+    },
+    {
+      "fileId": "20260428_205113",
+      "aiTurn": 27,
+      "moveNumber": 53,
+      "actual": "(R,3) (M,4)",
+      "safeCount": 509,
+      "safeSamples": [
+        "(A,19) (R,3)",
+        "(A,19) (S,3)",
+        "(B,19) (R,3)"
+      ],
+      "blackThreatAfterActual": {
+        "win1": 0,
+        "win2": 0
+      }
+    },
+    {
+      "fileId": "20260428_205113",
+      "aiTurn": 28,
+      "moveNumber": 55,
+      "actual": "(R,7) (M,2)",
+      "safeCount": 3,
+      "safeSamples": [
+        "(S,8) (M,2)",
+        "(R,7) (M,2)",
+        "(R,7) (L,1)"
+      ],
+      "blackThreatAfterActual": {
+        "win1": 0,
+        "win2": 0
+      }
+    },
+    {
+      "fileId": "20260428_205113",
+      "aiTurn": 29,
+      "moveNumber": 57,
+      "actual": "(P,6) (O,6)",
+      "safeCount": 248,
+      "safeSamples": [
+        "(A,19) (P,6)",
+        "(B,19) (P,6)",
+        "(C,19) (P,6)"
+      ],
+      "blackThreatAfterActual": {
+        "win1": 0,
+        "win2": 0
+      }
+    },
+    {
+      "fileId": "20260428_205113",
+      "aiTurn": 30,
+      "moveNumber": 59,
+      "actual": "(Q,7) (R,6)",
+      "safeCount": 0,
+      "safeSamples": [],
+      "blackThreatAfterActual": {
+        "win1": 0,
+        "win2": 1
+      }
+    }
+  ]
+}

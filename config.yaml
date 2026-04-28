@@ -1,10 +1,10 @@
 # Connect6 AI configuration
 weights:
-  road_3_score: 10000
-  road_4_score: 50000
-  live4_score: 10000
-  live5_score: 200000
-  vcdt_bonus: 5000
+  road_3_score: 12000
+  road_4_score: 45000
+  live4_score: 80000
+  live5_score: 150000
+  vcdt_bonus: 6000
 pvsDepth: 6
 quickDepth: 4
 mctsBranch: 40

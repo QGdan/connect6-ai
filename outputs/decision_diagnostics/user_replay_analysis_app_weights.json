@@ -1,0 +1,49 @@
+{
+  "issues": [
+    {
+      "fileId": "20260428_005817",
+      "aiTurn": 24,
+      "moveNumber": 47,
+      "actual": "(L,13) (L,16)",
+      "pred": "(L,13) (L,16)",
+      "postBlackWin1": 0,
+      "postBlackWin2": 1
+    },
+    {
+      "fileId": "20260428_011821",
+      "aiTurn": 10,
+      "moveNumber": 19,
+      "actual": "(J,15) (D,9)",
+      "pred": "(J,15) (D,9)",
+      "postBlackWin1": 0,
+      "postBlackWin2": 4
+    },
+    {
+      "fileId": "20260428_190312",
+      "aiTurn": 10,
+      "moveNumber": 19,
+      "actual": "(H,6) (C,11)",
+      "pred": "(H,6) (C,11)",
+      "postBlackWin1": 0,
+      "postBlackWin2": 1
+    },
+    {
+      "fileId": "20260428_205113",
+      "aiTurn": 8,
+      "moveNumber": 15,
+      "actual": "(F,10) (K,15)",
+      "pred": "(F,10) (K,15)",
+      "postBlackWin1": 0,
+      "postBlackWin2": 1
+    },
+    {
+      "fileId": "20260428_205113",
+      "aiTurn": 30,
+      "moveNumber": 59,
+      "actual": "(Q,7) (R,6)",
+      "pred": "(Q,7) (R,6)",
+      "postBlackWin1": 0,
+      "postBlackWin2": 1
+    }
+  ]
+}

@@ -48,6 +48,7 @@ const sanitizeConfig = (config: MCTSConfig): MCTSConfig => ({
   dirichletEps: config.dirichletEps,
   reuseDecay: config.reuseDecay,
   reuseTtl: config.reuseTtl,
+  randomSeed: config.randomSeed,
 });
 
 const splitSimulations = (total: number, workers: number): number[] => {

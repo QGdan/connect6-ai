@@ -1,0 +1,44 @@
+name: Decision Diagnostics
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '0 3 * * *'
+  pull_request:
+    branches: [main]
+    paths:
+      - 'src/core/**'
+      - 'src/strategy/**'
+      - 'scripts/**'
+      - 'tests/**'
+
+jobs:
+  decision-diagnostics:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+
+      - name: Install
+        run: npm ci
+
+      - name: Run Decision Diagnostics
+        run: npm run diagnose:decision:ci
+
+      - name: Decision Diagnostic Gate
+        shell: bash
+        run: |
+          node -e "const fs=require('fs');const p='outputs/decision_diagnostics/decision_trace_summary.json';const s=JSON.parse(fs.readFileSync(p,'utf8'));const severe=(s.traditional.immediateBlunder+s.hybrid.immediateBlunder+s.traditional.openingInUrgent);const flags=new Set(s.diagnosticFlags||[]);const dormant=flags.has('hybrid_selector_dormant')||flags.has('hybrid_branch_dormant');if(severe>0||dormant){console.error('Decision diagnostics gate failed: severe='+severe+', dormant='+dormant);process.exit(1);}console.log('Decision diagnostics gate passed.');"
+
+      - name: Upload Diagnostic Artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: decision-diagnostics
+          path: outputs/decision_diagnostics

@@ -49,6 +49,7 @@ const sanitizeConfig = (config: MCTSConfig): MCTSConfig => ({
   dirichletEps: config.dirichletEps,
   reuseDecay: config.reuseDecay,
   reuseTtl: config.reuseTtl,
+  randomSeed: config.randomSeed,
 });
 
 ctx.onmessage = async (event: MessageEvent<WorkerMessage>) => {

@@ -5,6 +5,7 @@ import { generateRZOPCandidates } from './rzop';
 import { BOARD_SIZE } from './game_state';
 import { fromIdx, posIdx } from './pos_key';
 import { computeZobristHash } from './zobrist';
+import { createMulberry32 } from './rng';
 
 interface MCTSNode {
   state: GameState;
@@ -30,6 +31,7 @@ export interface MCTSConfig {
   candidateGenerator?: (state: GameState) => Position[];
   reuseDecay?: number;
   reuseTtl?: number;
+  randomSeed?: number;
 }
 
 export type MCTSChildStats = {
@@ -151,6 +153,7 @@ export class MCTSConnect6AI {
     { self: Map<bigint, MCTSNode>; opp: Map<bigint, MCTSNode> }
   >;
   private reuseTick = 0;
+  private rng: () => number;
 
   // ★ 普通构造函数，内部赋值
   constructor(evaluator: IResNetEvaluator, config: MCTSConfig) {
@@ -165,6 +168,7 @@ export class MCTSConnect6AI {
       BLACK: { self: new Map(), opp: new Map() },
       WHITE: { self: new Map(), opp: new Map() },
     };
+    this.rng = Math.random;
   }
 
   async decideMove(root: GameState, player: Player): Promise<AIMoveDecision> {
@@ -196,6 +200,7 @@ export class MCTSConnect6AI {
     player: Player,
     simulations: number,
   ): Promise<MCTSRootStats> {
+    this.configureRunRng(root, player, simulations);
     this.reuseTick += 1;
     const rootNode = this.getOrCreateNode(root, player, player);
     const startVisits = rootNode.visits;
@@ -399,13 +404,13 @@ export class MCTSConnect6AI {
     const pool = candidates.slice(0, maxPoints);
 
     if (need === 1) {
-      const pick = pool[Math.floor(Math.random() * pool.length)];
+      const pick = pool[Math.floor(this.rng() * pool.length)];
       return { player, positions: [pick] };
     }
 
     if (pool.length < 2) return null;
-    const aIndex = Math.floor(Math.random() * pool.length);
-    let bIndex = Math.floor(Math.random() * (pool.length - 1));
+    const aIndex = Math.floor(this.rng() * pool.length);
+    let bIndex = Math.floor(this.rng() * (pool.length - 1));
     if (bIndex >= aIndex) bIndex += 1;
     return {
       player,
@@ -540,7 +545,7 @@ export class MCTSConnect6AI {
     alpha: number,
     eps: number,
   ): void {
-    const noise = sampleDirichlet(alpha, children.length);
+    const noise = sampleDirichlet(alpha, children.length, this.rng);
     let sum = 0;
     for (let i = 0; i < children.length; i += 1) {
       const child = children[i][1];
@@ -552,6 +557,25 @@ export class MCTSConnect6AI {
         child.prior /= sum;
       }
     }
+  }
+
+  private configureRunRng(
+    root: GameState,
+    player: Player,
+    simulations: number,
+  ): void {
+    const seed = this.config.randomSeed;
+    if (!Number.isFinite(seed)) {
+      this.rng = Math.random;
+      return;
+    }
+    const rootKey = this.getStateKey(root);
+    const root32 = Number(rootKey & 0xffffffffn) >>> 0;
+    const sim32 = (Math.max(0, Math.floor(simulations)) >>> 0) || 1;
+    const sideSalt = player === 'BLACK' ? 0x9e3779b9 : 0x7f4a7c15;
+    let mix = (Math.floor(seed as number) >>> 0) ^ root32 ^ sim32 ^ sideSalt;
+    if (mix === 0) mix = 1;
+    this.rng = createMulberry32(mix);
   }
 }
 
@@ -596,11 +620,15 @@ function decodeMoveKey(key: number, player: Player): Move {
   };
 }
 
-function sampleDirichlet(alpha: number, size: number): number[] {
+function sampleDirichlet(
+  alpha: number,
+  size: number,
+  rng: () => number,
+): number[] {
   const samples = new Array<number>(size).fill(0);
   let sum = 0;
   for (let i = 0; i < size; i += 1) {
-    const v = sampleGamma(alpha);
+    const v = sampleGamma(alpha, rng);
     samples[i] = v;
     sum += v;
   }
@@ -610,11 +638,11 @@ function sampleDirichlet(alpha: number, size: number): number[] {
   return samples.map(v => v / sum);
 }
 
-function sampleGamma(alpha: number): number {
+function sampleGamma(alpha: number, rng: () => number): number {
   if (alpha <= 0) return 0;
   if (alpha < 1) {
-    const u = Math.random();
-    return sampleGamma(alpha + 1) * Math.pow(u, 1 / alpha);
+    const u = rng();
+    return sampleGamma(alpha + 1, rng) * Math.pow(u, 1 / alpha);
   }
   const d = alpha - 1 / 3;
   const c = 1 / Math.sqrt(9 * d);
@@ -622,13 +650,13 @@ function sampleGamma(alpha: number): number {
     let x = 0;
     let v = 0;
     do {
-      const u1 = Math.random();
-      const u2 = Math.random();
+      const u1 = rng();
+      const u2 = rng();
       x = Math.sqrt(-2 * Math.log(u1)) * Math.cos(2 * Math.PI * u2);
       v = 1 + c * x;
     } while (v <= 0);
     v = v * v * v;
-    const u3 = Math.random();
+    const u3 = rng();
     if (u3 < 1 - 0.0331 * (x * x) * (x * x)) return d * v;
     if (Math.log(u3) < 0.5 * x * x + d * (1 - v + Math.log(v))) return d * v;
   }

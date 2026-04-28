@@ -1,0 +1,69 @@
+{
+  "generatedAt": "2026-04-28T13:53:29.947Z",
+  "cfg": {
+    "maxDepth": 4,
+    "timeLimitMs": 220,
+    "useMultithreading": false
+  },
+  "oldW": {
+    "road_3_score": 100,
+    "road_4_score": 350,
+    "live4_score": 3000,
+    "live5_score": 9000,
+    "vcdt_bonus": 1500
+  },
+  "newW": {
+    "road_3_score": 12000,
+    "road_4_score": 45000,
+    "live4_score": 80000,
+    "live5_score": 150000,
+    "vcdt_bonus": 6000
+  },
+  "games": [
+    {
+      "game": "replay_20260428_210640.txt",
+      "winner": "BLACK",
+      "whiteTurns": 7,
+      "matchActualOld": 6,
+      "matchActualNew": 6,
+      "oldNewDiff": 0,
+      "keyDiffs": []
+    },
+    {
+      "game": "replay_20260428_205113.txt",
+      "winner": "BLACK",
+      "whiteTurns": 30,
+      "matchActualOld": 29,
+      "matchActualNew": 29,
+      "oldNewDiff": 0,
+      "keyDiffs": []
+    },
+    {
+      "game": "replay_20260428_190312.txt",
+      "winner": "BLACK",
+      "whiteTurns": 10,
+      "matchActualOld": 9,
+      "matchActualNew": 9,
+      "oldNewDiff": 0,
+      "keyDiffs": []
+    },
+    {
+      "game": "replay_20260428_011821.txt",
+      "winner": "BLACK",
+      "whiteTurns": 10,
+      "matchActualOld": 8,
+      "matchActualNew": 8,
+      "oldNewDiff": 0,
+      "keyDiffs": []
+    },
+    {
+      "game": "replay_20260428_005817.txt",
+      "winner": "BLACK",
+      "whiteTurns": 24,
+      "matchActualOld": 23,
+      "matchActualNew": 23,
+      "oldNewDiff": 0,
+      "keyDiffs": []
+    }
+  ]
+}

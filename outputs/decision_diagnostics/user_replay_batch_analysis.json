@@ -1,0 +1,494 @@
+{
+  "generatedAt": "2026-04-28T13:51:10.757Z",
+  "weights": {
+    "road_3_score": 12000,
+    "road_4_score": 45000,
+    "live4_score": 80000,
+    "live5_score": 150000,
+    "vcdt_bonus": 6000
+  },
+  "games": [
+    {
+      "file": "outputs/decision_diagnostics/user_replays/replay_20260428_210640.txt",
+      "game": "replay_20260428_210640.txt",
+      "totalMoves": 15,
+      "winner": "BLACK",
+      "winnerAtTurn": 15,
+      "whiteTurns": 7,
+      "urgentWhiteTurns": 5,
+      "missWin1Turns": 0,
+      "unresolvedWin2Turns": 1,
+      "severeTurnCount": 1,
+      "firstSevereTurn": {
+        "ply": 14,
+        "moveNumber": 13,
+        "actual": "W(H10,F11)",
+        "required": 2,
+        "preUrgent": true,
+        "preWin1": [],
+        "preWin2Pairs": [
+          "D11/F11",
+          "F11/J11",
+          "H9/H10",
+          "H10/H15",
+          "H15/H16"
+        ],
+        "preLive4": 6,
+        "preCharge4": 0,
+        "preDoubleFour": 0,
+        "preFourThree": 1,
+        "preDoubleThree": 0,
+        "coveredWin1": [],
+        "uncoveredWin1": [],
+        "uncoveredWin2Count": 1,
+        "postBlackWin1": [],
+        "postBlackWin2Pairs": [
+          "H15/H16"
+        ],
+        "blackImmediateAfterWhite": true,
+        "suggestion": {
+          "move": "W(H10,F11)",
+          "stage": "threat_root",
+          "reason": "block_opp_win2",
+          "recCoverWin1": 0,
+          "recUncoveredWin2": 1,
+          "recStillImmediate": true
+        }
+      },
+      "severeTurns": [
+        {
+          "ply": 14,
+          "moveNumber": 13,
+          "actual": "W(H10,F11)",
+          "required": 2,
+          "preUrgent": true,
+          "preWin1": [],
+          "preWin2Pairs": [
+            "D11/F11",
+            "F11/J11",
+            "H9/H10",
+            "H10/H15",
+            "H15/H16"
+          ],
+          "preLive4": 6,
+          "preCharge4": 0,
+          "preDoubleFour": 0,
+          "preFourThree": 1,
+          "preDoubleThree": 0,
+          "coveredWin1": [],
+          "uncoveredWin1": [],
+          "uncoveredWin2Count": 1,
+          "postBlackWin1": [],
+          "postBlackWin2Pairs": [
+            "H15/H16"
+          ],
+          "blackImmediateAfterWhite": true,
+          "suggestion": {
+            "move": "W(H10,F11)",
+            "stage": "threat_root",
+            "reason": "block_opp_win2",
+            "recCoverWin1": 0,
+            "recUncoveredWin2": 1,
+            "recStillImmediate": true
+          }
+        }
+      ]
+    },
+    {
+      "file": "outputs/decision_diagnostics/user_replays/replay_20260428_205113.txt",
+      "game": "replay_20260428_205113.txt",
+      "totalMoves": 61,
+      "winner": "BLACK",
+      "winnerAtTurn": 61,
+      "whiteTurns": 30,
+      "urgentWhiteTurns": 28,
+      "missWin1Turns": 0,
+      "unresolvedWin2Turns": 2,
+      "severeTurnCount": 2,
+      "firstSevereTurn": {
+        "ply": 16,
+        "moveNumber": 15,
+        "actual": "W(F10,K15)",
+        "required": 2,
+        "preUrgent": true,
+        "preWin1": [],
+        "preWin2Pairs": [
+          "I15/I16",
+          "E9/F10",
+          "F10/K15",
+          "K15/L16"
+        ],
+        "preLive4": 3,
+        "preCharge4": 2,
+        "preDoubleFour": 0,
+        "preFourThree": 1,
+        "preDoubleThree": 3,
+        "coveredWin1": [],
+        "uncoveredWin1": [],
+        "uncoveredWin2Count": 1,
+        "postBlackWin1": [],
+        "postBlackWin2Pairs": [
+          "I15/I16"
+        ],
+        "blackImmediateAfterWhite": true,
+        "suggestion": {
+          "move": "W(F10,K15)",
+          "stage": "threat_root",
+          "reason": "block_opp_win2",
+          "recCoverWin1": 0,
+          "recUncoveredWin2": 1,
+          "recStillImmediate": true
+        }
+      },
+      "severeTurns": [
+        {
+          "ply": 16,
+          "moveNumber": 15,
+          "actual": "W(F10,K15)",
+          "required": 2,
+          "preUrgent": true,
+          "preWin1": [],
+          "preWin2Pairs": [
+            "I15/I16",
+            "E9/F10",
+            "F10/K15",
+            "K15/L16"
+          ],
+          "preLive4": 3,
+          "preCharge4": 2,
+          "preDoubleFour": 0,
+          "preFourThree": 1,
+          "preDoubleThree": 3,
+          "coveredWin1": [],
+          "uncoveredWin1": [],
+          "uncoveredWin2Count": 1,
+          "postBlackWin1": [],
+          "postBlackWin2Pairs": [
+            "I15/I16"
+          ],
+          "blackImmediateAfterWhite": true,
+          "suggestion": {
+            "move": "W(F10,K15)",
+            "stage": "threat_root",
+            "reason": "block_opp_win2",
+            "recCoverWin1": 0,
+            "recUncoveredWin2": 1,
+            "recStillImmediate": true
+          }
+        },
+        {
+          "ply": 60,
+          "moveNumber": 59,
+          "actual": "W(Q7,R6)",
+          "required": 2,
+          "preUrgent": true,
+          "preWin1": [],
+          "preWin2Pairs": [
+            "Q1/Q2",
+            "Q2/Q7",
+            "Q7/Q8",
+            "M1/R6",
+            "R6/S7"
+          ],
+          "preLive4": 4,
+          "preCharge4": 3,
+          "preDoubleFour": 0,
+          "preFourThree": 1,
+          "preDoubleThree": 0,
+          "coveredWin1": [],
+          "uncoveredWin1": [],
+          "uncoveredWin2Count": 1,
+          "postBlackWin1": [],
+          "postBlackWin2Pairs": [
+            "Q1/Q2"
+          ],
+          "blackImmediateAfterWhite": true,
+          "suggestion": {
+            "move": "W(Q7,R6)",
+            "stage": "threat_root",
+            "reason": "block_opp_win2",
+            "recCoverWin1": 0,
+            "recUncoveredWin2": 1,
+            "recStillImmediate": true
+          }
+        }
+      ]
+    },
+    {
+      "file": "outputs/decision_diagnostics/user_replays/replay_20260428_190312.txt",
+      "game": "replay_20260428_190312.txt",
+      "totalMoves": 21,
+      "winner": "BLACK",
+      "winnerAtTurn": 21,
+      "whiteTurns": 10,
+      "urgentWhiteTurns": 9,
+      "missWin1Turns": 0,
+      "unresolvedWin2Turns": 1,
+      "severeTurnCount": 1,
+      "firstSevereTurn": {
+        "ply": 20,
+        "moveNumber": 19,
+        "actual": "W(H6,C11)",
+        "required": 2,
+        "preUrgent": true,
+        "preWin1": [],
+        "preWin2Pairs": [
+          "B9/C9",
+          "H6/I5",
+          "C11/H6",
+          "B12/C11"
+        ],
+        "preLive4": 1,
+        "preCharge4": 2,
+        "preDoubleFour": 0,
+        "preFourThree": 0,
+        "preDoubleThree": 0,
+        "coveredWin1": [],
+        "uncoveredWin1": [],
+        "uncoveredWin2Count": 1,
+        "postBlackWin1": [],
+        "postBlackWin2Pairs": [
+          "B9/C9"
+        ],
+        "blackImmediateAfterWhite": true,
+        "suggestion": {
+          "move": "W(H6,C11)",
+          "stage": "threat_root",
+          "reason": "block_opp_win2",
+          "recCoverWin1": 0,
+          "recUncoveredWin2": 1,
+          "recStillImmediate": true
+        }
+      },
+      "severeTurns": [
+        {
+          "ply": 20,
+          "moveNumber": 19,
+          "actual": "W(H6,C11)",
+          "required": 2,
+          "preUrgent": true,
+          "preWin1": [],
+          "preWin2Pairs": [
+            "B9/C9",
+            "H6/I5",
+            "C11/H6",
+            "B12/C11"
+          ],
+          "preLive4": 1,
+          "preCharge4": 2,
+          "preDoubleFour": 0,
+          "preFourThree": 0,
+          "preDoubleThree": 0,
+          "coveredWin1": [],
+          "uncoveredWin1": [],
+          "uncoveredWin2Count": 1,
+          "postBlackWin1": [],
+          "postBlackWin2Pairs": [
+            "B9/C9"
+          ],
+          "blackImmediateAfterWhite": true,
+          "suggestion": {
+            "move": "W(H6,C11)",
+            "stage": "threat_root",
+            "reason": "block_opp_win2",
+            "recCoverWin1": 0,
+            "recUncoveredWin2": 1,
+            "recStillImmediate": true
+          }
+        }
+      ]
+    },
+    {
+      "file": "outputs/decision_diagnostics/user_replays/replay_20260428_011821.txt",
+      "game": "replay_20260428_011821.txt",
+      "totalMoves": 21,
+      "winner": "BLACK",
+      "winnerAtTurn": 21,
+      "whiteTurns": 10,
+      "urgentWhiteTurns": 7,
+      "missWin1Turns": 0,
+      "unresolvedWin2Turns": 1,
+      "severeTurnCount": 1,
+      "firstSevereTurn": {
+        "ply": 20,
+        "moveNumber": 19,
+        "actual": "W(J15,D9)",
+        "required": 2,
+        "preUrgent": true,
+        "preWin1": [
+          "D9",
+          "J15"
+        ],
+        "preWin2Pairs": [
+          "F14/G14",
+          "G14/L14",
+          "L14/M14",
+          "I15/I16",
+          "C8/D9",
+          "J15/K16"
+        ],
+        "preLive4": 3,
+        "preCharge4": 1,
+        "preDoubleFour": 0,
+        "preFourThree": 0,
+        "preDoubleThree": 0,
+        "coveredWin1": [
+          "D9",
+          "J15"
+        ],
+        "uncoveredWin1": [],
+        "uncoveredWin2Count": 4,
+        "postBlackWin1": [],
+        "postBlackWin2Pairs": [
+          "F14/G14",
+          "G14/L14",
+          "L14/M14",
+          "I15/I16"
+        ],
+        "blackImmediateAfterWhite": true,
+        "suggestion": {
+          "move": "W(J15,D9)",
+          "stage": "threat_root",
+          "reason": "block_opp_win1_multi",
+          "recCoverWin1": 2,
+          "recUncoveredWin2": 4,
+          "recStillImmediate": true
+        }
+      },
+      "severeTurns": [
+        {
+          "ply": 20,
+          "moveNumber": 19,
+          "actual": "W(J15,D9)",
+          "required": 2,
+          "preUrgent": true,
+          "preWin1": [
+            "D9",
+            "J15"
+          ],
+          "preWin2Pairs": [
+            "F14/G14",
+            "G14/L14",
+            "L14/M14",
+            "I15/I16",
+            "C8/D9",
+            "J15/K16"
+          ],
+          "preLive4": 3,
+          "preCharge4": 1,
+          "preDoubleFour": 0,
+          "preFourThree": 0,
+          "preDoubleThree": 0,
+          "coveredWin1": [
+            "D9",
+            "J15"
+          ],
+          "uncoveredWin1": [],
+          "uncoveredWin2Count": 4,
+          "postBlackWin1": [],
+          "postBlackWin2Pairs": [
+            "F14/G14",
+            "G14/L14",
+            "L14/M14",
+            "I15/I16"
+          ],
+          "blackImmediateAfterWhite": true,
+          "suggestion": {
+            "move": "W(J15,D9)",
+            "stage": "threat_root",
+            "reason": "block_opp_win1_multi",
+            "recCoverWin1": 2,
+            "recUncoveredWin2": 4,
+            "recStillImmediate": true
+          }
+        }
+      ]
+    },
+    {
+      "file": "outputs/decision_diagnostics/user_replays/replay_20260428_005817.txt",
+      "game": "replay_20260428_005817.txt",
+      "totalMoves": 49,
+      "winner": "BLACK",
+      "winnerAtTurn": 49,
+      "whiteTurns": 24,
+      "urgentWhiteTurns": 20,
+      "missWin1Turns": 0,
+      "unresolvedWin2Turns": 1,
+      "severeTurnCount": 1,
+      "firstSevereTurn": {
+        "ply": 48,
+        "moveNumber": 47,
+        "actual": "W(L13,L16)",
+        "required": 2,
+        "preUrgent": true,
+        "preWin1": [],
+        "preWin2Pairs": [
+          "K13/L13",
+          "L13/Q13",
+          "Q13/R13",
+          "L16/Q11",
+          "K17/L16"
+        ],
+        "preLive4": 2,
+        "preCharge4": 3,
+        "preDoubleFour": 0,
+        "preFourThree": 2,
+        "preDoubleThree": 1,
+        "coveredWin1": [],
+        "uncoveredWin1": [],
+        "uncoveredWin2Count": 1,
+        "postBlackWin1": [],
+        "postBlackWin2Pairs": [
+          "Q13/R13"
+        ],
+        "blackImmediateAfterWhite": true,
+        "suggestion": {
+          "move": "W(L13,L16)",
+          "stage": "threat_root",
+          "reason": "block_opp_win2",
+          "recCoverWin1": 0,
+          "recUncoveredWin2": 1,
+          "recStillImmediate": true
+        }
+      },
+      "severeTurns": [
+        {
+          "ply": 48,
+          "moveNumber": 47,
+          "actual": "W(L13,L16)",
+          "required": 2,
+          "preUrgent": true,
+          "preWin1": [],
+          "preWin2Pairs": [
+            "K13/L13",
+            "L13/Q13",
+            "Q13/R13",
+            "L16/Q11",
+            "K17/L16"
+          ],
+          "preLive4": 2,
+          "preCharge4": 3,
+          "preDoubleFour": 0,
+          "preFourThree": 2,
+          "preDoubleThree": 1,
+          "coveredWin1": [],
+          "uncoveredWin1": [],
+          "uncoveredWin2Count": 1,
+          "postBlackWin1": [],
+          "postBlackWin2Pairs": [
+            "Q13/R13"
+          ],
+          "blackImmediateAfterWhite": true,
+          "suggestion": {
+            "move": "W(L13,L16)",
+            "stage": "threat_root",
+            "reason": "block_opp_win2",
+            "recCoverWin1": 0,
+            "recUncoveredWin2": 1,
+            "recStillImmediate": true
+          }
+        }
+      ]
+    }
+  ]
+}

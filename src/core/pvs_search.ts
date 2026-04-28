@@ -31,6 +31,11 @@ import {
   findVcfVctRootHints,
 } from './vcf_vct_solver';
 import { isDeadLineCell } from './line_potential';
+import {
+  beginDecisionTrace,
+  endDecisionTrace,
+  traceDecisionEvent,
+} from './decision_trace';
 
 type ThreatKind = Exclude<PatternType, 'CONNECT6'>;
 
@@ -950,6 +955,10 @@ function pvs(
     const next = applyMoveWithWinner(state, move);
     const opp = switchPlayer(toMove);
     const nextDepth = Math.max(0, depth - 1 + localExtension);
+    const nextThreatCache = {
+      self: cachedThreats(next, opp),
+      opp: cachedThreats(next, toMove),
+    };
 
     let score: number;
     if (i === 0 || !isPV) {
@@ -964,7 +973,7 @@ function pvs(
         deadline,
         isPV,
         nextExtensionBudget,
-        { self: oppThreats, opp: myThreats },
+        nextThreatCache,
         patternEval,
       );
     } else {
@@ -980,7 +989,7 @@ function pvs(
         deadline,
         false,
         nextExtensionBudget,
-        { self: oppThreats, opp: myThreats },
+        nextThreatCache,
         patternEval,
       );
       if (score > localAlpha && score < beta) {
@@ -995,7 +1004,7 @@ function pvs(
           deadline,
           true,
           nextExtensionBudget,
-          { self: oppThreats, opp: myThreats },
+          nextThreatCache,
           patternEval,
         );
       }
@@ -2066,22 +2075,64 @@ function pickDefensiveRootMoveAgainstInitiative(
   const nonDead = scored.filter(item => !isDeadLineCell(state, item.p));
   const pool = nonDead.length > 0 ? nonDead : scored;
   const primary = pool[0].p;
+  const primaryKey = posIdx(primary.x, primary.y);
+  const singleLive3Ends = new Set<number>();
+  if (
+    stones === 2 &&
+    oppLive3LineCount === 1 &&
+    oppReport.winIn1.length === 0 &&
+    oppReport.winIn2.length === 0
+  ) {
+    for (const threat of oppLive3Threats) {
+      for (const end of threat.ends) {
+        if (state.board[end.y]?.[end.x] !== 0) continue;
+        singleLive3Ends.add(posIdx(end.x, end.y));
+      }
+    }
+  }
 
   if (stones === 1) {
     return { player: rootPlayer, positions: [primary] };
   }
 
   let second: Position | null = null;
+  const primaryHitsSingleLive3End = singleLive3Ends.has(primaryKey);
+  if (primaryHitsSingleLive3End) {
+    const avoid = new Set<number>(singleLive3Ends);
+    avoid.delete(primaryKey);
+    const smart = pickSmartSecond(state, rootPlayer, primary, avoid);
+    const smartKey = posIdx(smart.x, smart.y);
+    if (
+      smartKey !== primaryKey &&
+      state.board[smart.y]?.[smart.x] === 0 &&
+      !singleLive3Ends.has(smartKey)
+    ) {
+      second = smart;
+    }
+  }
+
   for (const item of pool) {
     const p = item.p;
     if (p.x === primary.x && p.y === primary.y) continue;
     if (state.board[p.y]?.[p.x] !== 0) continue;
+    if (
+      primaryHitsSingleLive3End &&
+      singleLive3Ends.has(posIdx(p.x, p.y))
+    ) {
+      continue;
+    }
     second = p;
     break;
   }
 
   if (!second) {
-    const avoid = new Set<number>([posIdx(primary.x, primary.y)]);
+    const avoid = new Set<number>([primaryKey]);
+    if (primaryHitsSingleLive3End) {
+      for (const key of singleLive3Ends) {
+        if (key === primaryKey) continue;
+        avoid.add(key);
+      }
+    }
     second = pickSecondFromThreatReport(state, merged, avoid);
   }
 
@@ -2185,7 +2236,8 @@ function buildBlockMoveForWin2Pairs(
   if (pairs.length === 0) return null;
 
   const emptyPairs = pairs.filter(
-    ([a, b]) => state.board[a.y][a.x] === 0 || state.board[b.y][b.x] === 0,
+    // A win-in-2 pair is only active when both endpoints are still empty.
+    ([a, b]) => state.board[a.y][a.x] === 0 && state.board[b.y][b.x] === 0,
   );
   if (emptyPairs.length === 0) return null;
 
@@ -2228,9 +2280,89 @@ function buildBlockMoveForWin2Pairs(
     });
 
   if (ranked.length === 0) return null;
+
+  type DefenseScore = {
+    win1: number;
+    win2: number;
+    doubleFour: number;
+    fourThree: number;
+    live4: number;
+    doubleThree: number;
+    dist: number;
+  };
+
+  const scoreDefenseMove = (positions: Position[]): DefenseScore | null => {
+    try {
+      const next = applyMoveWithWinner(state, { player, positions });
+      const opp = switchPlayer(player);
+      const oppAfter = cachedAnalyzeThreats(next, opp);
+      const dist = positions.reduce(
+        (sum, p) =>
+          sum +
+          Math.abs(p.x - (BOARD_SIZE - 1) / 2) +
+          Math.abs(p.y - (BOARD_SIZE - 1) / 2),
+        0,
+      );
+      return {
+        win1: oppAfter.winIn1.length,
+        win2: oppAfter.winIn2.length,
+        doubleFour: oppAfter.byType.DOUBLE_FOUR.length,
+        fourThree: oppAfter.byType.FOUR_THREE.length,
+        live4: oppAfter.byType.LIVE4.length + oppAfter.byType.CHARGE4.length,
+        doubleThree: oppAfter.byType.DOUBLE_THREE.length,
+        dist,
+      };
+    } catch {
+      return null;
+    }
+  };
+
+  const isBetter = (a: DefenseScore, b: DefenseScore): boolean => {
+    if (a.win1 !== b.win1) return a.win1 < b.win1;
+    if (a.win2 !== b.win2) return a.win2 < b.win2;
+    if (a.doubleFour !== b.doubleFour) return a.doubleFour < b.doubleFour;
+    if (a.fourThree !== b.fourThree) return a.fourThree < b.fourThree;
+    if (a.live4 !== b.live4) return a.live4 < b.live4;
+    if (a.doubleThree !== b.doubleThree) return a.doubleThree < b.doubleThree;
+    return a.dist < b.dist;
+  };
+
+  const MAX_WIN2_DEFENSE_POINTS = 12;
+  const candidates = ranked
+    .slice(0, MAX_WIN2_DEFENSE_POINTS)
+    .map(item => item.p);
+
   if (stones === 1) {
-    return { player, positions: [ranked[0].p] };
+    let bestMove: Move | null = null;
+    let bestScore: DefenseScore | null = null;
+    for (const p of candidates) {
+      const score = scoreDefenseMove([p]);
+      if (!score) continue;
+      if (!bestScore || isBetter(score, bestScore)) {
+        bestScore = score;
+        bestMove = { player, positions: [p] };
+      }
+    }
+    return bestMove ?? { player, positions: [ranked[0].p] };
   }
+
+  let bestMove: Move | null = null;
+  let bestScore: DefenseScore | null = null;
+  for (let i = 0; i < candidates.length; i += 1) {
+    for (let j = i + 1; j < candidates.length; j += 1) {
+      const a = candidates[i];
+      const b = candidates[j];
+      if (posIdx(a.x, a.y) === posIdx(b.x, b.y)) continue;
+      const score = scoreDefenseMove([a, b]);
+      if (!score) continue;
+      if (!bestScore || isBetter(score, bestScore)) {
+        bestScore = score;
+        bestMove = { player, positions: [a, b] };
+      }
+    }
+  }
+
+  if (bestMove) return bestMove;
 
   const primary = ranked[0];
   const covered = new Set<number>(primary.covered);
@@ -2448,6 +2580,32 @@ export function pvsSearchBestMove(
   );
   const deadline = getCurrentTime() + timeBudget;
   const patternEval = new PatternEvaluator(rootPlayer);
+  const traceId = beginDecisionTrace('pvsSearchBestMove', {
+    player: rootPlayer,
+    moveNumber: rootState.moveNumber,
+    maxDepth,
+    timeBudget,
+  });
+  const finalizeDecision = (decision: AIMoveDecision): AIMoveDecision => {
+    traceDecisionEvent(traceId, 'pvsSearchBestMove', 'return', {
+      mode: decision.debugInfo?.mode,
+      reason: decision.debugInfo?.reason,
+      depth: decision.debugInfo?.depth,
+      nodes: decision.debugInfo?.nodes,
+    });
+    endDecisionTrace(traceId, {
+      mode: decision.debugInfo?.mode,
+      reason: decision.debugInfo?.reason,
+      depth: decision.debugInfo?.depth,
+      nodes: decision.debugInfo?.nodes,
+    });
+    return decision;
+  };
+  traceDecisionEvent(traceId, 'pvsSearchBestMove', 'enter', {
+    moveNumber: rootState.moveNumber,
+    maxDepth,
+    timeBudget,
+  });
   const tacticalHintMoves: Move[] = [];
   let tacticalHintSet: Set<string> | undefined;
   let tacticalHintInfo: Record<string, number | string> | undefined;
@@ -2466,6 +2624,9 @@ export function pvsSearchBestMove(
     rootOppReport,
   );
   if (threatRoot) {
+    traceDecisionEvent(traceId, 'pvsSearchBestMove', 'threat_root_hit', {
+      reason: threatRoot.reason,
+    });
     const next = applyMoveWithWinner(rootState, threatRoot.move);
     const opp = switchPlayer(rootPlayer);
 
@@ -2501,7 +2662,7 @@ export function pvsSearchBestMove(
 
     lastSearchDepth = searchedDepth;
 
-    return {
+    return finalizeDecision({
       move: threatRoot.move,
       score,
       debugInfo: {
@@ -2515,7 +2676,7 @@ export function pvsSearchBestMove(
         ...multithreadingHint,
         ...debugSizes(),
       },
-    };
+    });
   }
   const tacticalDepth = Math.min(VCF_VCT_MAX_DEPTH, maxDepth);
   const tacticalTimeMs = Math.min(
@@ -2571,6 +2732,9 @@ export function pvsSearchBestMove(
   if (tacticalHints?.line && tacticalHints.line.length > 0) {
     const lineMove = tacticalHints.line[0];
     if (isLegalRootMove(lineMove)) {
+      traceDecisionEvent(traceId, 'pvsSearchBestMove', 'tactical_forced_line', {
+        kind: tacticalHints.kind,
+      });
       const next = applyMoveWithWinner(rootState, lineMove);
       const score = evaluateWithThreatReport(
         next,
@@ -2579,7 +2743,7 @@ export function pvsSearchBestMove(
         undefined,
         patternEval,
       );
-      return {
+      return finalizeDecision({
         move: lineMove,
         score,
         debugInfo: {
@@ -2594,7 +2758,7 @@ export function pvsSearchBestMove(
           ...multithreadingHint,
           ...debugSizes(),
         },
-      };
+      });
     }
   }
 
@@ -2653,6 +2817,9 @@ export function pvsSearchBestMove(
         tacticalDefenseChecks: defenseCandidates.length,
       };
       if (forcedDefenseMoves.length === 1) {
+        traceDecisionEvent(traceId, 'pvsSearchBestMove', 'forced_defense_single', {
+          kind: opponentHints.kind,
+        });
         const next = applyMoveWithWinner(rootState, forcedDefenseMoves[0]);
         const score = evaluateWithThreatReport(
           next,
@@ -2661,7 +2828,7 @@ export function pvsSearchBestMove(
           undefined,
           patternEval,
         );
-        return {
+        return finalizeDecision({
           move: forcedDefenseMoves[0],
           score,
           debugInfo: {
@@ -2677,7 +2844,7 @@ export function pvsSearchBestMove(
             ...multithreadingHint,
             ...debugSizes(),
           },
-        };
+        });
       }
     }
   }
@@ -2691,6 +2858,7 @@ export function pvsSearchBestMove(
       rootOppReport,
     );
     if (calmDoubleLive3) {
+      traceDecisionEvent(traceId, 'pvsSearchBestMove', 'double_live3_build', {});
       const next = applyMoveWithWinner(rootState, calmDoubleLive3);
       const score = evaluateWithThreatReport(
         next,
@@ -2699,7 +2867,7 @@ export function pvsSearchBestMove(
         undefined,
         patternEval,
       );
-      return {
+      return finalizeDecision({
         move: calmDoubleLive3,
         score,
         debugInfo: {
@@ -2713,7 +2881,7 @@ export function pvsSearchBestMove(
           ...multithreadingHint,
           ...debugSizes(),
         },
-      };
+      });
     }
 
     const vcdtAttack = pickVcdtRootAttackMove(
@@ -2723,6 +2891,7 @@ export function pvsSearchBestMove(
       rootOppReport,
     );
     if (vcdtAttack) {
+      traceDecisionEvent(traceId, 'pvsSearchBestMove', 'vcdt_attack', {});
       const next = applyMoveWithWinner(rootState, vcdtAttack);
       const score = evaluateWithThreatReport(
         next,
@@ -2731,7 +2900,7 @@ export function pvsSearchBestMove(
         undefined,
         patternEval,
       );
-      return {
+      return finalizeDecision({
         move: vcdtAttack,
         score,
         debugInfo: {
@@ -2745,7 +2914,7 @@ export function pvsSearchBestMove(
           ...multithreadingHint,
           ...debugSizes(),
         },
-      };
+      });
     }
   }
 
@@ -2816,7 +2985,8 @@ export function pvsSearchBestMove(
 
     if (moveCombos.length === 0) {
       const fallback = findFallbackMove(rootState, rootPlayer);
-      return {
+      traceDecisionEvent(traceId, 'pvsSearchBestMove', 'no_candidate_fallback', {});
+      return finalizeDecision({
         move: fallback,
       score: evaluateWithThreatReport(
         rootState,
@@ -2838,7 +3008,7 @@ export function pvsSearchBestMove(
           ...multithreadingHint,
           ...debugSizes(),
         },
-      };
+      });
     }
 
     if (moveCombos.length > MAX_ROOT_MOVE_COMBOS) {
@@ -3041,7 +3211,11 @@ export function pvsSearchBestMove(
     );
   }
 
-      return {
+      traceDecisionEvent(traceId, 'pvsSearchBestMove', 'normal_search_complete', {
+        depth: searchedDepth,
+        nodes: lastSearchNodeCount,
+      });
+      return finalizeDecision({
         move: bestMove,
         score: bestScore,
         debugInfo: {
@@ -3056,6 +3230,6 @@ export function pvsSearchBestMove(
           ...multithreadingHint,
           ...debugSizes(),
         },
-      };
+      });
 }
 

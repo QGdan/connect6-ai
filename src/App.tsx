@@ -74,6 +74,7 @@ import {
   getLastSearchStats,
   evaluateWithThreatReport,
 } from './core/pvs_search';
+import { analyzeBothCached } from './core/threat_service';
 import {
   buildFilename,
   generateKifuString,
@@ -83,11 +84,11 @@ import {
 
 // 估值权重
 const initialWeights: EvaluationWeights = {
-  road_3_score: 100,
-  road_4_score: 350,
-  live4_score: 3000,
-  live5_score: 9000,
-  vcdt_bonus: 1500,
+  road_3_score: 12_000,
+  road_4_score: 45_000,
+  live4_score: 80_000,
+  live5_score: 150_000,
+  vcdt_bonus: 6_000,
 };
 
 // 控制思考时间
@@ -214,6 +215,60 @@ const scoreToWinProb = (score: number): number => {
   const t = Math.tanh(scaled);
   return Math.max(0.01, Math.min(0.99, 0.5 + 0.5 * t));
 };
+
+const OPENING_PHASE_MAX_MOVE_NUMBER = 10;
+
+function switchPlayer(player: Player): Player {
+  return player === 'BLACK' ? 'WHITE' : 'BLACK';
+}
+
+function hasUrgentThreatForDecision(state: GameState, player: Player): boolean {
+  const { my, opp } = analyzeBothCached(state, player);
+  const myNeed = getStonesToPlace(state.moveNumber, player);
+  const oppNeed = getStonesToPlace(state.moveNumber + 1, switchPlayer(player));
+  const myImmediate = my.winIn1.length > 0 || (myNeed >= 2 && my.winIn2.length > 0);
+  const oppImmediate =
+    opp.winIn1.length > 0 || (oppNeed >= 2 && opp.winIn2.length > 0);
+  const oppInitiative =
+    opp.byType.LIVE4.length > 0 ||
+    opp.byType.CHARGE4.length > 0 ||
+    opp.byType.DOUBLE_FOUR.length > 0 ||
+    opp.byType.FOUR_THREE.length > 0 ||
+    opp.byType.DOUBLE_THREE.length > 0;
+  return myImmediate || oppImmediate || oppInitiative;
+}
+
+function normalizeDecisionDebugInfo(
+  decision: AIMoveDecision,
+  fallbackStage: 'opening' | 'pvs' | 'deep' | 'hybrid_final',
+): AIMoveDecision {
+  if (!decision.debugInfo) decision.debugInfo = {};
+  const mode = typeof decision.debugInfo.mode === 'string'
+    ? decision.debugInfo.mode
+    : '';
+  const stage =
+    decision.debugInfo.decisionStage ??
+    (() => {
+      if (mode === 'threat_root' || mode === 'vcf_root' || mode === 'vct_root' || mode === 'vcdt_root') {
+        return 'threat_root';
+      }
+      if (mode === 'vcf_defense' || mode === 'vct_defense') {
+        return 'forced_defense';
+      }
+      return fallbackStage;
+    })();
+  decision.debugInfo.decisionStage = stage;
+  if (typeof decision.debugInfo.decisionReason !== 'string') {
+    decision.debugInfo.decisionReason =
+      (typeof decision.debugInfo.reason === 'string'
+        ? decision.debugInfo.reason
+        : undefined) ??
+      (typeof decision.debugInfo.mode === 'string'
+        ? decision.debugInfo.mode
+        : fallbackStage);
+  }
+  return decision;
+}
 
 const STAR_POINTS = new Set(
   [
@@ -760,7 +815,10 @@ const MainApp: React.FC = () => {
       const requiredStones = getStonesToPlace(current.moveNumber, player);
       console.log('AI 当前应下子数 =', requiredStones);
 
-      let opening = getOpeningMove(current, player);
+      const openingAllowed =
+        current.moveNumber <= OPENING_PHASE_MAX_MOVE_NUMBER &&
+        !hasUrgentThreatForDecision(current, player);
+      let opening = openingAllowed ? getOpeningMove(current, player) : null;
       if (opening) {
         if (requiredStones === 1 && opening.positions.length > 1) {
           opening = {
@@ -769,16 +827,18 @@ const MainApp: React.FC = () => {
           };
         }
         if (opening.positions.length === requiredStones) {
-          return {
+          return normalizeDecisionDebugInfo({
             move: opening,
             score: 0,
             debugInfo: {
               strategy: 'opening',
               engine: 'opening_book',
+              decisionStage: 'opening',
+              decisionReason: 'opening_book_safe_gate',
               mctsVisitTarget: mctsVisitTargetHint,
               pvsNodeTarget,
             },
-          };
+          }, 'opening');
         }
       }
 
@@ -797,7 +857,7 @@ const MainApp: React.FC = () => {
           mctsVisitTarget: mctsVisitTargetHint,
           pvsNodeTarget,
         };
-        return r;
+        return normalizeDecisionDebugInfo(r, 'pvs');
       }
 
       // 2) 深度 MCTS
@@ -810,7 +870,7 @@ const MainApp: React.FC = () => {
           mctsVisitTarget: mctsVisitTargetDeep,
           pvsNodeTarget,
         };
-        return r;
+        return normalizeDecisionDebugInfo(r, 'deep');
       }
 
       // 3) auto 混合策略
@@ -822,7 +882,7 @@ const MainApp: React.FC = () => {
       r.debugInfo.mctsVisitTarget ??=
         engine === 'mcts' ? mctsVisitTargetMain : mctsVisitTargetHint;
       r.debugInfo.pvsNodeTarget ??= pvsNodeTarget;
-      return r;
+      return normalizeDecisionDebugInfo(r, 'hybrid_final');
     },
     [strategyMode, mctsParallel, strategyManager, weights],
   );
@@ -915,7 +975,12 @@ const MainApp: React.FC = () => {
           setLastAIMove({
             move: opening,
             score: 0,
-            debugInfo: { strategy: 'opening', engine: 'opening_book' },
+            debugInfo: {
+              strategy: 'opening',
+              engine: 'opening_book',
+              decisionStage: 'opening',
+              decisionReason: 'opening_book_first_move',
+            },
           });
           setLastAiThinkTimeMs(0);
           setLastAiNodes(0);

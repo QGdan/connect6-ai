@@ -1,0 +1,80 @@
+{
+  "generatedAt": "2026-04-28T13:07:56.248Z",
+  "criticals": [
+    {
+      "fileId": "20260428_005817",
+      "fileName": "C6-人类 B vs AI W-先手胜-2026-4-28 00-58-14-人机对决 - 策略-traditional-20260428_005817.txt",
+      "aiTurn": 24,
+      "moveNumber": 47,
+      "actual": "(L,13) (L,16)",
+      "actualThreat": {
+        "win1": 0,
+        "win2": 1
+      },
+      "forced": true,
+      "safeCount": 0,
+      "safeSamples": [],
+      "winningSamples": []
+    },
+    {
+      "fileId": "20260428_011821",
+      "fileName": "C6-人类 B vs AI W-先手胜-2026-4-28 01-18-20-人机对决 - 策略-traditional-20260428_011821.txt",
+      "aiTurn": 10,
+      "moveNumber": 19,
+      "actual": "(J,15) (D,9)",
+      "actualThreat": {
+        "win1": 0,
+        "win2": 4
+      },
+      "forced": true,
+      "safeCount": 0,
+      "safeSamples": [],
+      "winningSamples": []
+    },
+    {
+      "fileId": "20260428_190312",
+      "fileName": "C6-人类 B vs AI W-先手胜-2026-4-28 19-03-11-人机对决 - 策略-traditional-20260428_190312.txt",
+      "aiTurn": 10,
+      "moveNumber": 19,
+      "actual": "(H,6) (C,11)",
+      "actualThreat": {
+        "win1": 0,
+        "win2": 1
+      },
+      "forced": true,
+      "safeCount": 0,
+      "safeSamples": [],
+      "winningSamples": []
+    },
+    {
+      "fileId": "20260428_205113",
+      "fileName": "C6-人类 B vs AI W-先手胜-2026-4-28 20-51-12-人机对决 - 策略-traditional-20260428_205113.txt",
+      "aiTurn": 8,
+      "moveNumber": 15,
+      "actual": "(F,10) (K,15)",
+      "actualThreat": {
+        "win1": 0,
+        "win2": 1
+      },
+      "forced": true,
+      "safeCount": 0,
+      "safeSamples": [],
+      "winningSamples": []
+    },
+    {
+      "fileId": "20260428_205113",
+      "fileName": "C6-人类 B vs AI W-先手胜-2026-4-28 20-51-12-人机对决 - 策略-traditional-20260428_205113.txt",
+      "aiTurn": 30,
+      "moveNumber": 59,
+      "actual": "(Q,7) (R,6)",
+      "actualThreat": {
+        "win1": 0,
+        "win2": 1
+      },
+      "forced": true,
+      "safeCount": 0,
+      "safeSamples": [],
+      "winningSamples": []
+    }
+  ]
+}

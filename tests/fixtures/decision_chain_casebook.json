@@ -1,0 +1,57 @@
+{
+  "sourceFixture": "tests/fixtures/selfplay_regression_sample.txt",
+  "coordMode": "bottom",
+  "maxGames": 6,
+  "maxTurnsPerGame": 36,
+  "sampleStride": 2,
+  "cases": [
+    {
+      "id": "g3_t31",
+      "gameIndex": 2,
+      "turnIndex": 30,
+      "expectStage": "hybrid_final",
+      "expectStrategy": "hybrid",
+      "expectedSameAsTraditional": false
+    },
+    {
+      "id": "g4_t31",
+      "gameIndex": 3,
+      "turnIndex": 30,
+      "expectStage": "hybrid_final",
+      "expectStrategy": "hybrid",
+      "expectedSameAsTraditional": false
+    },
+    {
+      "id": "g4_t33",
+      "gameIndex": 3,
+      "turnIndex": 32,
+      "expectStage": "hybrid_final",
+      "expectStrategy": "hybrid",
+      "expectedSameAsTraditional": true
+    },
+    {
+      "id": "g5_t31",
+      "gameIndex": 4,
+      "turnIndex": 30,
+      "expectStage": "hybrid_final",
+      "expectStrategy": "hybrid",
+      "expectedSameAsTraditional": false
+    },
+    {
+      "id": "g5_t33",
+      "gameIndex": 4,
+      "turnIndex": 32,
+      "expectStage": "hybrid_final",
+      "expectStrategy": "hybrid",
+      "expectedSameAsTraditional": true
+    },
+    {
+      "id": "g5_t35",
+      "gameIndex": 4,
+      "turnIndex": 34,
+      "expectStage": "hybrid_final",
+      "expectStrategy": "hybrid",
+      "expectedSameAsTraditional": true
+    }
+  ]
+}
