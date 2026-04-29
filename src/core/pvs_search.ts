@@ -36,6 +36,28 @@ import {
   endDecisionTrace,
   traceDecisionEvent,
 } from './decision_trace';
+import {
+  addKillerMove as addKillerMoveStore,
+  clearAspirationWindows,
+  clearKillerMoves,
+  clearTranspositionTable,
+  decayHistory as decayHistoryStore,
+  getAspirationWindows,
+  getHistoryEvictionsThisMove,
+  getHistoryScore as getHistoryScoreStore,
+  getHistorySize,
+  getKillerMoves,
+  getTTEvictionsThisMove,
+  getTTBestMove,
+  getTTSize,
+  probeTT as probeTTStore,
+  pushAspirationWindow,
+  resetHistoryEvictionsThisMove,
+  resetTTEvictionsThisMove,
+  storeTT as storeTTStore,
+  type AspirationWindow,
+  updateHistory as updateHistoryStore,
+} from './pvs/tt_history';
 
 type ThreatKind = Exclude<PatternType, 'CONNECT6'>;
 
@@ -448,29 +470,7 @@ const MAX_LOCAL_EXTENSION = 2; // 閬囧埌寮哄▉鑳?寮烘潃鏃讹紝灞€
 const MAX_TIME_THREAT_BOOST = 1.6; // 鍗辨€ュ眬闈㈡渶澶氭斁澶?1.6x 鏃堕棿
 
 // ===== 缃崲琛?=====
-type AspirationWindow = {
-  depth: number;
-  retry: number;
-  alpha: number;
-  beta: number;
-};
-
-const lastAspirationWindows: AspirationWindow[] = [];
-
-type TTFlag = 'EXACT' | 'LOWER' | 'UPPER';
-
-interface TTEntry {
-  depth: number;
-  score: number;
-  flag: TTFlag;
-  bestMove?: Move;
-}
-
-const transpositionTable = new Map<bigint, TTEntry>();
-const killerMoves = new Map<number, Move[]>();
 let lastEvalSignature: string | null = null;
-let ttEvictionsThisMove = 0;
-let historyEvictionsThisMove = 0;
 
 function formatEvalSig(value: unknown): string {
   return Number.isFinite(value) ? Number(value).toFixed(6) : 'na';
@@ -497,18 +497,8 @@ function probeTT(
   depth: number,
   alpha: number,
   beta: number,
-): TTEntry | null {
-  const hash = hashState(state);
-  const entry = transpositionTable.get(hash);
-  if (!entry || entry.depth < depth) return null;
-  transpositionTable.delete(hash);
-  transpositionTable.set(hash, entry);
-
-  if (entry.flag === 'EXACT') return entry;
-  if (entry.flag === 'LOWER' && entry.score >= beta) return entry;
-  if (entry.flag === 'UPPER' && entry.score <= alpha) return entry;
-
-  return null;
+): { score: number; depth: number; flag: 'EXACT' | 'LOWER' | 'UPPER'; bestMove?: Move } | null {
+  return probeTTStore(hashState(state), depth, alpha, beta);
 }
 
 function storeTT(
@@ -519,71 +509,28 @@ function storeTT(
   beta: number,
   bestMove?: Move,
 ): void {
-  const hash = hashState(state);
-  const existing = transpositionTable.get(hash);
-  if (existing && existing.depth > depth) return;
-
-  let flag: TTFlag = 'EXACT';
-  if (score <= alpha) flag = 'UPPER';
-  else if (score >= beta) flag = 'LOWER';
-
-  transpositionTable.set(hash, { depth, score, flag, bestMove });
-
-  if (transpositionTable.size > MAX_TT_ENTRIES) {
-    const evictCount = Math.max(1, Math.floor(MAX_TT_ENTRIES * 0.2));
-    for (let i = 0; i < evictCount; i++) {
-      const oldest = transpositionTable.keys().next();
-      if (oldest.done) break;
-      transpositionTable.delete(oldest.value);
-      ttEvictionsThisMove += 1;
-    }
-  }
+  storeTTStore(
+    hashState(state),
+    depth,
+    score,
+    alpha,
+    beta,
+    bestMove,
+    MAX_TT_ENTRIES,
+  );
 }
 
 // ===== history 鍚彂 =====
-const historyTable = new Map<number, number>();
-const HISTORY_KEY_BASE = BOARD_SIZE * BOARD_SIZE;
-
-function historyKey(player: Player, pos: Position): number {
-  const base = player === 'BLACK' ? 0 : HISTORY_KEY_BASE;
-  return base + posIdx(pos.x, pos.y);
-}
-
 function updateHistory(player: Player, pos: Position, depth: number): void {
-  const key = historyKey(player, pos);
-  const old = historyTable.get(key) ?? 0;
-  const next = old + depth * depth;
-  historyTable.set(key, Math.min(next, 1_000_000));
-
-  if (historyTable.size > MAX_HISTORY_ENTRIES) {
-    const evictCount = Math.max(1, Math.floor(MAX_HISTORY_ENTRIES * 0.2));
-    for (let i = 0; i < evictCount; i++) {
-      const oldest = historyTable.keys().next();
-      if (oldest.done) break;
-      historyTable.delete(oldest.value);
-      historyEvictionsThisMove += 1;
-    }
-  }
+  updateHistoryStore(player, pos, depth, BOARD_SIZE, MAX_HISTORY_ENTRIES);
 }
 
 function getHistoryScore(player: Player, pos: Position): number {
-  const key = historyKey(player, pos);
-  const val = historyTable.get(key);
-  if (val === undefined) return 0;
-  historyTable.delete(key);
-  historyTable.set(key, val);
-  return val;
+  return getHistoryScoreStore(player, pos, BOARD_SIZE);
 }
 
 function decayHistory(): void {
-  for (const [k, v] of historyTable.entries()) {
-    const decayed = Math.floor(v * 0.9);
-    if (decayed <= MIN_HISTORY_THRESHOLD) {
-      historyTable.delete(k);
-    } else {
-      historyTable.set(k, decayed);
-    }
-  }
+  decayHistoryStore(MIN_HISTORY_THRESHOLD);
 }
 
 // ===== 宸ュ叿 =====
@@ -821,12 +768,12 @@ export function getLastSearchStats() {
   return {
     nodes: lastSearchNodeCount,
     depth: lastSearchDepth,
-    ttSize: transpositionTable.size,
+    ttSize: getTTSize(),
   };
 }
 
 export function getLastAspirationWindows(): AspirationWindow[] {
-  return lastAspirationWindows.slice();
+  return getAspirationWindows();
 }
 
 function normalizeWindow(alpha: number, beta: number): { alpha: number; beta: number } {
@@ -1533,7 +1480,7 @@ function scoreMoveForOrdering(
     0,
   );
 
-  const killers = killerMoves.get(depth) ?? [];
+  const killers = getKillerMoves(depth);
   const isKiller = killers.some(k => sameMove(k, move));
   const killerBonus = isKiller ? 80_000 : 0;
   const tacticalBonus =
@@ -1852,10 +1799,7 @@ function prependUniqueMoves(base: Move[], prepends: Move[]): Move[] {
 }
 
 function addKillerMove(depth: number, move: Move): void {
-  const list = killerMoves.get(depth) ?? [];
-  if (list.some(m => sameMove(m, move))) return;
-  const next = [move, ...list].slice(0, 2);
-  killerMoves.set(depth, next);
+  addKillerMoveStore(depth, move, sameMove);
 }
 
 function orderMoves(
@@ -1872,7 +1816,7 @@ function orderMoves(
 ): Move[] {
   const required = getStonesToPlace(state.moveNumber, toMove);
   const valid = moves.filter(m => m.positions.length === required);
-  const ttBest = transpositionTable.get(hashState(state))?.bestMove;
+  const ttBest = getTTBestMove(hashState(state));
 
   const preMy = preThreatCache?.self ?? cachedThreats(state, toMove);
   const preOpp =
@@ -2916,30 +2860,30 @@ export function pvsSearchBestMove(
 
   const evalSignature = buildEvalSignature(searchWeights);
   let ttClearsThisMove = 0;
-  ttEvictionsThisMove = 0;
-  historyEvictionsThisMove = 0;
+  resetTTEvictionsThisMove();
+  resetHistoryEvictionsThisMove();
   if (evalSignature !== lastEvalSignature) {
-    transpositionTable.clear();
+    clearTranspositionTable();
     lastEvalSignature = evalSignature;
     ttClearsThisMove = 1;
   }
-  const ttSizeBefore = transpositionTable.size;
-  const historySizeBefore = historyTable.size;
+  const ttSizeBefore = getTTSize();
+  const historySizeBefore = getHistorySize();
   const debugSizes = () => ({
     ttSizeBefore,
-    ttSizeAfter: transpositionTable.size,
-    ttEvictionsThisMove,
+    ttSizeAfter: getTTSize(),
+    ttEvictionsThisMove: getTTEvictionsThisMove(),
     historySizeBefore,
-    historySizeAfter: historyTable.size,
-    historyEvictionsThisMove,
+    historySizeAfter: getHistorySize(),
+    historyEvictionsThisMove: getHistoryEvictionsThisMove(),
   });
   clearThreatCache();
   threatListCacheBlack.clear();
   threatListCacheWhite.clear();
   lastSearchNodeCount = 0;
   currentSearchAborted = false;
-  killerMoves.clear();
-  lastAspirationWindows.length = 0;
+  clearKillerMoves();
+  clearAspirationWindows();
   decayHistory();
 
   const maxDepth = Math.max(1, config.maxDepth ?? 8);
@@ -3004,7 +2948,7 @@ export function pvsSearchBestMove(
       engine: 'pvs+threat+zorp',
       mode,
       nodes: lastSearchNodeCount,
-      ttSize: transpositionTable.size,
+      ttSize: getTTSize(),
       ttClearsThisMove,
       ...multithreadingHint,
       ...debugSizes(),
@@ -3451,7 +3395,7 @@ export function pvsSearchBestMove(
 
       let alpha = baseAlpha;
       const beta = baseBeta;
-      lastAspirationWindows.push({ depth: d, retry, alpha, beta });
+      pushAspirationWindow({ depth: d, retry, alpha, beta });
       let failed = false;
       iterBestMove = bestMove;
       iterBestScore = -Infinity;
