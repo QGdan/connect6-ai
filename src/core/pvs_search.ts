@@ -157,18 +157,6 @@ function hasStrictDoubleLive3(state: GameState, report: ThreatReport): boolean {
   return countOpenThreeLines(threats) >= 2;
 }
 
-function isCalmPosition(
-  myReport: ThreatReport,
-  oppReport: ThreatReport,
-): boolean {
-  if (myReport.winIn1.length > 0 || myReport.winIn2.length > 0) return false;
-  if (oppReport.winIn1.length > 0 || oppReport.winIn2.length > 0) return false;
-  for (const type of QUIET_THREAT_TYPES) {
-    if (myReport.byType[type].length > 0) return false;
-    if (oppReport.byType[type].length > 0) return false;
-  }
-  return true;
-}
 const OPP_INITIATIVE_TYPES: PatternType[] = [
   'DOUBLE_FOUR',
   'FOUR_THREE',
@@ -440,11 +428,15 @@ const VCF_VCT_MAX_BRANCH = 6;
 const VCF_VCT_DEFENSE_CHECKS = 6;
 const LOCALITY_MAX_DIST = 6;
 const LOCALITY_BONUS_PER_STEP = 1500;
-
-const ENABLE_INITIATIVE_CANDIDATES = true;
-const USE_RZOP_ONLY = false;
-const ENABLE_OPP_INITIATIVE_DEFENSE = true;
-const ENABLE_OPP_INITIATIVE_CANDIDATES = true;
+const TWO_STONE_MAX_GENERATED = 140;
+const TWO_STONE_FIRST_POOL = 40;
+const TWO_STONE_FIRST_BEAM = 18;
+const TWO_STONE_SECOND_BEAM = 8;
+const SINGLE_STONE_CANDIDATE_LIMIT = 20;
+const TWO_STONE_CANDIDATE_LIMIT = 36;
+const SINGLE_LIVE3_DOUBLE_BLOCK_PENALTY = 60_000;
+const THREAT_TIME_BASE_RATIO = 0.75;
+const THREAT_TIME_BASE_MIN_MS = 3500;
 
 const MAX_TT_ENTRIES = 1_000_000;
 const MAX_HISTORY_ENTRIES = 500_000;
@@ -823,6 +815,7 @@ function quiescenceSearch(
 // ===== PVS 鏍稿績 =====
 let lastSearchNodeCount = 0;
 let lastSearchDepth = 0;
+let currentSearchAborted = false;
 
 export function getLastSearchStats() {
   return {
@@ -862,7 +855,19 @@ function pvs(
   beta = normalized.beta;
   lastSearchNodeCount++;
 
+  if (currentSearchAborted) {
+    return evaluateForToMove(
+      state,
+      rootPlayer,
+      toMove,
+      weights,
+      undefined,
+      patternEval,
+    );
+  }
+
   if (getCurrentTime() > deadline) {
+    currentSearchAborted = true;
     return evaluateForToMove(
       state,
       rootPlayer,
@@ -916,7 +921,9 @@ function pvs(
       undefined,
       patternEval,
     );
-    storeTT(state, depth, evalScore, alpha, beta);
+    if (!currentSearchAborted) {
+      storeTT(state, depth, evalScore, alpha, beta);
+    }
     return evalScore;
   }
   if (moves.length > MAX_CHILD_MOVE_COMBOS) {
@@ -951,6 +958,7 @@ function pvs(
   const nextExtensionBudget = Math.max(0, extensionBudget - localExtension);
 
   for (let i = 0; i < ordered.length; i++) {
+    if (currentSearchAborted) break;
     const move = ordered[i];
     const next = applyMoveWithWinner(state, move);
     const opp = switchPlayer(toMove);
@@ -961,7 +969,7 @@ function pvs(
     };
 
     let score: number;
-    if (i === 0 || !isPV) {
+    if (i === 0) {
       score = -pvs(
         next,
         rootPlayer,
@@ -1009,6 +1017,7 @@ function pvs(
         );
       }
     }
+    if (currentSearchAborted) break;
 
     if (score > bestScore) {
       bestScore = score;
@@ -1017,19 +1026,45 @@ function pvs(
 
     if (score > localAlpha) {
       localAlpha = score;
-      for (const p of move.positions) {
-        updateHistory(toMove, p, depth);
+      if (!currentSearchAborted) {
+        for (const p of move.positions) {
+          updateHistory(toMove, p, depth);
+        }
       }
     }
 
     if (localAlpha >= beta) {
-      addKillerMove(depth, move);
+      if (!currentSearchAborted) {
+        addKillerMove(depth, move);
+      }
       break;
     }
   }
 
+  if (currentSearchAborted) {
+    return evaluateForToMove(
+      state,
+      rootPlayer,
+      toMove,
+      weights,
+      undefined,
+      patternEval,
+    );
+  }
+
   if (bestMove) {
     storeTT(state, depth, bestScore, alpha, beta, bestMove);
+  }
+
+  if (!Number.isFinite(bestScore)) {
+    return evaluateForToMove(
+      state,
+      rootPlayer,
+      toMove,
+      weights,
+      undefined,
+      patternEval,
+    );
   }
 
   return bestScore;
@@ -1069,6 +1104,7 @@ function generateTwoStoneMoves(
   const moves: Move[] = [];
   const n = candidates.length;
   const maxCombos = Math.min((n * (n - 1)) / 2, 1000);
+  const maxGenerated = Math.min(maxCombos, TWO_STONE_MAX_GENERATED);
 
   // 鍘婚噸宸ュ叿锛氬悓涓€瀵圭偣鍙敓鎴愪竴娆?
   const seen = new Set<number>();
@@ -1085,19 +1121,10 @@ function generateTwoStoneMoves(
     const bFirst = aFirst === p1 ? p2 : p1;
     const key = pairKey(aFirst, bFirst);
 
-    if (
-      singleOppLive3Pairs &&
-      singleOppLive3Pairs.has(key) &&
-      !myWinPairKeys.has(key) &&
-      candidates.length > 2
-    ) {
-      return;
-    }
-
     if (seen.has(key)) return;
     seen.add(key);
 
-    if (moves.length < maxCombos) {
+    if (moves.length < maxGenerated) {
       moves.push({ player, positions: [aFirst, bFirst] });
     }
   };
@@ -1128,51 +1155,127 @@ function generateTwoStoneMoves(
 
   const addWinPairs = (pairs: [Position, Position][]) => {
     for (const [p1, p2] of pairs) {
-      if (moves.length >= maxCombos) break;
+      if (moves.length >= maxGenerated) break;
       addMove(p1, p2);
     }
   };
   addWinPairs(oppReport.winPairs);
   addWinPairs(myReport.winPairs);
+  if (moves.length >= maxGenerated) return moves;
 
-  // ---------- 2) 鍐嶈ˉ鍘熸潵鐨勨€滀腑蹇冧紭鍏堚€濈粍鍚堥€昏緫 ----------
-  const BOARD_CENTER = 9.5;
-  const scored = candidates.map((p, idx) => ({
-    pos: p,
-    idx,
-    centerDist: Math.abs(p.x - BOARD_CENTER) + Math.abs(p.y - BOARD_CENTER),
-  }));
-  scored.sort((a, b) => a.centerDist - b.centerDist);
+  // ---------- 2) 椤哄簭鍙岃惤瀛?beam锛氬厛鎵╋紝鍐嶇瓫锛屾渶鍚庢敹缂?
+  const BOARD_CENTER = (BOARD_SIZE - 1) / 2;
+  const lastPositions = state.lastMove?.positions ?? [];
+  const lastDist = (p: Position): number => {
+    if (lastPositions.length === 0) return Infinity;
+    let best = Infinity;
+    for (const q of lastPositions) {
+      const d = Math.abs(p.x - q.x) + Math.abs(p.y - q.y);
+      if (d < best) best = d;
+    }
+    return best;
+  };
 
-  const pri = scored.slice(0, Math.min(30, n)).map(s => s.pos);
-  const backup = scored.slice(30).map(s => s.pos);
+  const toSet = (points: Position[]): Set<number> =>
+    new Set<number>(points.map(p => posIdx(p.x, p.y)));
+  const myWin1 = toSet(myReport.winningPoints);
+  const oppWin1 = toSet(oppReport.winningPoints);
+  const myAttack = toSet(myReport.attackPoints);
+  const oppDefense = toSet(oppReport.defensePoints);
+  const myCandidate = toSet(myReport.candidatePoints);
+  const oppCandidate = toSet(oppReport.candidatePoints);
+  const rzop = toSet(generateRZOPCandidates(state));
+  const myWinPairKeySet = new Set<number>(myReport.winPairs.map(([a, b]) => pairKey(a, b)));
+  const oppWinPairKeySet = new Set<number>(oppReport.winPairs.map(([a, b]) => pairKey(a, b)));
 
-  // 楂樹紭锛氫袱涓兘鍦ㄤ腑蹇冨尯鍩?
-  for (let i = 0; i < pri.length && moves.length < maxCombos; i++) {
-    for (let j = i + 1; j < pri.length && moves.length < maxCombos; j++) {
-      addMove(pri[i], pri[j]);
+  const endpointWeight = (key: number): number => {
+    let score = 0;
+    if (oppWin1.has(key)) score += 260_000;
+    if (myWin1.has(key)) score += 240_000;
+    if (oppDefense.has(key)) score += 72_000;
+    if (myAttack.has(key)) score += 54_000;
+    if (myCandidate.has(key)) score += 16_000;
+    if (oppCandidate.has(key)) score += 12_000;
+    if (rzop.has(key)) score += 8_000;
+    return score;
+  };
+
+  const dedup = new Set<number>();
+  const scored = candidates
+    .filter(p => state.board[p.y]?.[p.x] === 0)
+    .filter(p => {
+      const key = posIdx(p.x, p.y);
+      if (dedup.has(key)) return false;
+      dedup.add(key);
+      return true;
+    })
+    .map((p, order) => {
+      const key = posIdx(p.x, p.y);
+      const centerDist = Math.abs(p.x - BOARD_CENTER) + Math.abs(p.y - BOARD_CENTER);
+      const proximity = lastDist(p);
+      const deadPenalty = isDeadLineCell(state, p) ? 35_000 : 0;
+      const history = getHistoryScore(player, p);
+      const score =
+        endpointWeight(key) +
+        history * 0.25 +
+        Math.max(0, 10 - centerDist) * 950 +
+        (Number.isFinite(proximity) ? Math.max(0, 7 - proximity) * 850 : 0) -
+        deadPenalty;
+      return { p, key, score, centerDist, order };
+    })
+    .sort((a, b) => {
+      if (b.score !== a.score) return b.score - a.score;
+      if (a.centerDist !== b.centerDist) return a.centerDist - b.centerDist;
+      return a.order - b.order;
+    });
+
+  const firstPoolSize = Math.min(scored.length, Math.max(TWO_STONE_FIRST_POOL, TWO_STONE_FIRST_BEAM));
+  const firstBeamSize = Math.min(firstPoolSize, TWO_STONE_FIRST_BEAM);
+  for (let i = 0; i < firstBeamSize && moves.length < maxGenerated; i += 1) {
+    const first = scored[i];
+    const rankedSecond = scored
+      .filter(item => item.key !== first.key)
+      .map(item => {
+        const dist = Math.abs(item.p.x - first.p.x) + Math.abs(item.p.y - first.p.y);
+        const key = pairKey(first.p, item.p);
+        const tacticalBonus =
+          (oppWinPairKeySet.has(key) ? 140_000 : 0) +
+          (myWinPairKeySet.has(key) ? 125_000 : 0);
+        const shapeBonus =
+          dist <= 2 ? 7_000 : dist <= 5 ? 4_000 : dist >= 10 ? -2_500 : 0;
+        const doubleBlockSingleLive3Penalty =
+          singleOppLive3Pairs &&
+          singleOppLive3Pairs.has(key) &&
+          !myWinPairKeys.has(key) &&
+          candidates.length > 2
+            ? SINGLE_LIVE3_DOUBLE_BLOCK_PENALTY
+            : 0;
+        const pairScore =
+          first.score +
+          item.score +
+          tacticalBonus +
+          shapeBonus -
+          doubleBlockSingleLive3Penalty;
+        return { item, pairScore };
+      })
+      .sort((a, b) => b.pairScore - a.pairScore);
+
+    let usedSecond = 0;
+    for (const { item } of rankedSecond) {
+      addMove(first.p, item.p);
+      if (moves.length >= maxGenerated) break;
+      usedSecond += 1;
+      if (usedSecond >= TWO_STONE_SECOND_BEAM) break;
     }
   }
 
-  // 娆′紭锛氫竴涓湪涓績锛屼竴涓湪澶栧洿
-  for (let i = 0; i < pri.length && moves.length < maxCombos; i++) {
-    for (let j = 0; j < backup.length && moves.length < maxCombos; j++) {
-      addMove(pri[i], backup[j]);
-    }
-  }
-
-  // 鍐嶆锛氬鍥村拰澶栧洿
-  for (
-    let i = 0;
-    i < Math.min(20, backup.length) && moves.length < maxCombos;
-    i++
-  ) {
-    for (
-      let j = i + 1;
-      j < Math.min(20, backup.length) && moves.length < maxCombos;
-      j++
-    ) {
-      addMove(backup[i], backup[j]);
+  // 淇濈暀涓€灞傚叜鐢ㄥ厹搴曪紝閬垮厤鏋佺灞€闈㈠€欓€変笉瓒炽€?
+  if (moves.length < Math.min(maxGenerated, 24)) {
+    const pri = scored.slice(0, Math.min(24, scored.length)).map(s => s.p);
+    for (let i = 0; i < pri.length && moves.length < maxGenerated; i += 1) {
+      for (let j = i + 1; j < pri.length && moves.length < maxGenerated; j += 1) {
+        addMove(pri[i], pri[j]);
+      }
     }
   }
 
@@ -1186,16 +1289,16 @@ function generateMoves(
 ): Move[] {
   const stones = getStonesToPlace(state.moveNumber, player);
   const rzopPoints = generateRZOPCandidates(state);
-  const base =
-    USE_RZOP_ONLY && rzopPoints.length > 0
-      ? rzopPoints
-      : mergeCandidatePoints(rzopPoints, candidates);
+  const base = mergeCandidatePoints(rzopPoints, candidates);
   const filtered = base.filter(p => {
     if (state.board[p.y]?.[p.x] !== 0) return false;
     if (isDeadLineCell(state, p)) return false;
     return true;
   });
-  const topK = Math.min(filtered.length, 16);
+  const topK = Math.min(
+    filtered.length,
+    stones === 1 ? SINGLE_STONE_CANDIDATE_LIMIT : TWO_STONE_CANDIDATE_LIMIT,
+  );
   const limited = filtered.slice(0, topK);
 
   if (stones === 1) {
@@ -1297,7 +1400,7 @@ function collectThreatCandidates(
     myWinPair: 940,
     oppInitiative: 900,
     oppLive3: 880,
-    myWin: 860,
+    myWin: 980,
     oppDefense: 830,
     myLive3: 800,
     myInitiative: 780,
@@ -1337,29 +1440,25 @@ function collectThreatCandidates(
     addPairs(myReport.winPairs, PRIORITY.myWinPair, true);
   }
 
-  if (ENABLE_OPP_INITIATIVE_CANDIDATES) {
-    const oppInitiative = collectKeyPointsByType(oppReport, OPP_INITIATIVE_TYPES);
-    addList(oppInitiative, PRIORITY.oppInitiative, true);
-    const oppLive3 = collectOpenThreeEnds(state, oppReport);
-    addList(oppLive3, PRIORITY.oppLive3, true);
-  }
+  const oppInitiative = collectKeyPointsByType(oppReport, OPP_INITIATIVE_TYPES);
+  addList(oppInitiative, PRIORITY.oppInitiative, true);
+  const oppLive3 = collectOpenThreeEnds(state, oppReport);
+  addList(oppLive3, PRIORITY.oppLive3, true);
 
   addList(myReport.winningPoints, PRIORITY.myWin, true);
   addList(oppReport.defensePoints, PRIORITY.oppDefense, true);
 
-  if (ENABLE_INITIATIVE_CANDIDATES) {
-    const myLive3 = collectOpenThreeEnds(state, myReport);
-    addList(myLive3, PRIORITY.myLive3, false);
-    const initiative = collectKeyPointsByType(myReport, [
-      'DOUBLE_FOUR',
-      'FOUR_THREE',
-      'DOUBLE_THREE',
-      'LIVE4',
-      'CHARGE4',
-      'LIVE3',
-    ]);
-    addList(initiative, PRIORITY.myInitiative, true);
-  }
+  const myLive3 = collectOpenThreeEnds(state, myReport);
+  addList(myLive3, PRIORITY.myLive3, false);
+  const initiative = collectKeyPointsByType(myReport, [
+    'DOUBLE_FOUR',
+    'FOUR_THREE',
+    'DOUBLE_THREE',
+    'LIVE4',
+    'CHARGE4',
+    'LIVE3',
+  ]);
+  addList(initiative, PRIORITY.myInitiative, true);
 
   addList(myReport.attackPoints, PRIORITY.myAttack, true);
   addList(myReport.candidatePoints, PRIORITY.myCandidate, false);
@@ -1679,7 +1778,7 @@ function scoreMoveForOrdering(
         for (const entry of openThreeLines.values()) {
           if (!entry.ends.has(aKey) || !entry.ends.has(bKey)) continue;
           const penalty =
-            openThreeLines.size >= 2 || entry.threatCount >= 2 ? 45_000 : 120_000;
+            openThreeLines.size >= 2 || entry.threatCount >= 2 ? 25_000 : 55_000;
           overDefendPenalty -= penalty;
           break;
         }
@@ -1734,6 +1833,22 @@ function moveKey(move: Move): string {
 function sameMove(a: Move, b: Move): boolean {
   if (a.positions.length !== b.positions.length) return false;
   return moveKey(a) === moveKey(b);
+}
+
+function prependUniqueMoves(base: Move[], prepends: Move[]): Move[] {
+  if (prepends.length === 0 || base.length === 0) {
+    return prepends.length === 0 ? base : [...prepends, ...base];
+  }
+  const existing = new Set(base.map(moveKey));
+  const unique: Move[] = [];
+  for (const move of prepends) {
+    const key = moveKey(move);
+    if (existing.has(key)) continue;
+    existing.add(key);
+    unique.push(move);
+  }
+  if (unique.length === 0) return base;
+  return [...unique, ...base];
 }
 
 function addKillerMove(depth: number, move: Move): void {
@@ -2145,7 +2260,14 @@ function pickCalmDoubleLive3BuildMove(
   myReport: ThreatReport,
   oppReport: ThreatReport,
 ): Move | null {
-  if (!isCalmPosition(myReport, oppReport)) return null;
+  if (
+    myReport.winIn1.length > 0 ||
+    myReport.winIn2.length > 0 ||
+    oppReport.winIn1.length > 0 ||
+    oppReport.winIn2.length > 0
+  ) {
+    return null;
+  }
   if (hasStrictDoubleLive3(state, oppReport)) return null;
 
   const stones = getStonesToPlace(state.moveNumber, rootPlayer);
@@ -2240,6 +2362,7 @@ function buildBlockMoveForWin2Pairs(
     ([a, b]) => state.board[a.y][a.x] === 0 && state.board[b.y][b.x] === 0,
   );
   if (emptyPairs.length === 0) return null;
+  const emptyPairKeySet = new Set<number>(emptyPairs.map(([a, b]) => pairKey(a, b)));
 
   if (emptyPairs.length === 1) {
     const [a, b] = emptyPairs[0];
@@ -2353,6 +2476,7 @@ function buildBlockMoveForWin2Pairs(
       const a = candidates[i];
       const b = candidates[j];
       if (posIdx(a.x, a.y) === posIdx(b.x, b.y)) continue;
+      if (emptyPairKeySet.has(pairKey(a, b))) continue;
       const score = scoreDefenseMove([a, b]);
       if (!score) continue;
       if (!bestScore || isBetter(score, bestScore)) {
@@ -2376,6 +2500,7 @@ function buildBlockMoveForWin2Pairs(
   let bestCenter = Infinity;
   for (const item of ranked) {
     if (item.key === primary.key) continue;
+    if (emptyPairKeySet.has(pairKey(primary.p, item.p))) continue;
     let added = 0;
     for (const idx of item.covered) {
       if (remainingPairs.has(idx)) added += 1;
@@ -2397,6 +2522,12 @@ function buildBlockMoveForWin2Pairs(
 
   const avoid = new Set<number>();
   avoid.add(primary.key);
+  for (const [a, b] of emptyPairs) {
+    const aKey = posIdx(a.x, a.y);
+    const bKey = posIdx(b.x, b.y);
+    if (aKey === primary.key) avoid.add(bKey);
+    if (bKey === primary.key) avoid.add(aKey);
+  }
   if (remainingPairs.size === 0) {
     for (const [a, b] of emptyPairs) {
       avoid.add(posIdx(a.x, a.y));
@@ -2405,6 +2536,192 @@ function buildBlockMoveForWin2Pairs(
   }
   const second = pickSecondFromThreatReport(state, report, avoid);
   return { player, positions: [primary.p, second] };
+}
+
+type RootDefenseScore = {
+  immediate: boolean;
+  oppWin1: number;
+  oppWin2: number;
+  oppDoubleFour: number;
+  oppFourThree: number;
+  oppLive4: number;
+  oppDoubleThree: number;
+  myWin1: number;
+  myWin2: number;
+  centerDist: number;
+};
+
+function evaluateRootDefenseScore(
+  state: GameState,
+  player: Player,
+  move: Move,
+): RootDefenseScore | null {
+  try {
+    const next = applyMoveWithWinner(state, move);
+    if (next.winner === player) {
+      return {
+        immediate: false,
+        oppWin1: 0,
+        oppWin2: 0,
+        oppDoubleFour: 0,
+        oppFourThree: 0,
+        oppLive4: 0,
+        oppDoubleThree: 0,
+        myWin1: Number.MAX_SAFE_INTEGER,
+        myWin2: Number.MAX_SAFE_INTEGER,
+        centerDist: 0,
+      };
+    }
+
+    const opp = switchPlayer(player);
+    const oppNeed = getStonesToPlace(next.moveNumber, opp);
+    const oppAfter = cachedAnalyzeThreats(next, opp);
+    const myNeed = getStonesToPlace(next.moveNumber, player);
+    const myAfter = cachedAnalyzeThreats(next, player);
+    const immediate =
+      oppAfter.winIn1.length > 0 || (oppNeed >= 2 && oppAfter.winIn2.length > 0);
+    const centerDist = move.positions.reduce(
+      (sum, p) =>
+        sum +
+        Math.abs(p.x - (BOARD_SIZE - 1) / 2) +
+        Math.abs(p.y - (BOARD_SIZE - 1) / 2),
+      0,
+    );
+    return {
+      immediate,
+      oppWin1: oppAfter.winIn1.length,
+      oppWin2: oppAfter.winIn2.length,
+      oppDoubleFour: oppAfter.byType.DOUBLE_FOUR.length,
+      oppFourThree: oppAfter.byType.FOUR_THREE.length,
+      oppLive4: oppAfter.byType.LIVE4.length + oppAfter.byType.CHARGE4.length,
+      oppDoubleThree: oppAfter.byType.DOUBLE_THREE.length,
+      myWin1: myAfter.winIn1.length,
+      myWin2: myNeed >= 2 ? myAfter.winIn2.length : 0,
+      centerDist,
+    };
+  } catch {
+    return null;
+  }
+}
+
+function isBetterRootDefenseScore(a: RootDefenseScore, b: RootDefenseScore): boolean {
+  if (a.immediate !== b.immediate) return !a.immediate;
+  if (a.oppWin1 !== b.oppWin1) return a.oppWin1 < b.oppWin1;
+  if (a.oppWin2 !== b.oppWin2) return a.oppWin2 < b.oppWin2;
+  if (a.oppDoubleFour !== b.oppDoubleFour) return a.oppDoubleFour < b.oppDoubleFour;
+  if (a.oppFourThree !== b.oppFourThree) return a.oppFourThree < b.oppFourThree;
+  if (a.oppLive4 !== b.oppLive4) return a.oppLive4 < b.oppLive4;
+  if (a.oppDoubleThree !== b.oppDoubleThree) return a.oppDoubleThree < b.oppDoubleThree;
+  if (a.myWin1 !== b.myWin1) return a.myWin1 > b.myWin1;
+  if (a.myWin2 !== b.myWin2) return a.myWin2 > b.myWin2;
+  return a.centerDist < b.centerDist;
+}
+
+function refineThreatRootDefenseMove(
+  state: GameState,
+  player: Player,
+  report: ThreatReport,
+  oppReport: ThreatReport,
+  reason: string,
+  baseMove: Move,
+): Move {
+  const required = getStonesToPlace(state.moveNumber, player);
+  if (baseMove.positions.length !== required) return baseMove;
+  if (
+    reason !== 'block_opp_win1' &&
+    reason !== 'block_opp_win1_multi' &&
+    reason !== 'block_opp_win2' &&
+    reason !== 'block_opp_initiative'
+  ) {
+    return baseMove;
+  }
+
+  const mustTouch = new Set<number>();
+  if (reason === 'block_opp_win1' || reason === 'block_opp_win1_multi') {
+    for (const p of oppReport.winIn1) mustTouch.add(posIdx(p.x, p.y));
+  } else if (reason === 'block_opp_win2') {
+    for (const [a, b] of report.oppWin2Pairs) {
+      mustTouch.add(posIdx(a.x, a.y));
+      mustTouch.add(posIdx(b.x, b.y));
+    }
+  } else {
+    for (const item of collectInitiativeBlockPoints(state, oppReport).slice(0, 16)) {
+      mustTouch.add(posIdx(item.p.x, item.p.y));
+    }
+  }
+
+  const extraCandidates = collectThreatCandidates(
+    state,
+    player,
+    Math.max(MAX_ROOT_CANDIDATE_POINTS, 64),
+  );
+  let moves = generateMoves(state, extraCandidates, player);
+  if (moves.length > 120) {
+    moves = moves.slice(0, 120);
+  }
+
+  const blocksBothWin2PairEnds = (move: Move): boolean => {
+    if (reason !== 'block_opp_win2') return false;
+    const hit = new Set<number>(move.positions.map(p => posIdx(p.x, p.y)));
+    for (const [a, b] of report.oppWin2Pairs) {
+      const ka = posIdx(a.x, a.y);
+      const kb = posIdx(b.x, b.y);
+      if (hit.has(ka) && hit.has(kb)) return true;
+    }
+    return false;
+  };
+
+  const blocksSingleLive3BothEnds = (move: Move): boolean => {
+    if (reason !== 'block_opp_initiative') return false;
+    if (required !== 2) return false;
+    if (oppReport.winIn1.length > 0 || oppReport.winIn2.length > 0) return false;
+    const oppVal = player === 'BLACK' ? 2 : 1;
+    const oppLive3Threats = collectOpenThreeThreats(state, oppVal);
+    if (countOpenThreeLines(oppLive3Threats) !== 1) return false;
+    const ends = new Set<number>();
+    for (const threat of oppLive3Threats) {
+      for (const p of threat.ends) {
+        if (state.board[p.y]?.[p.x] !== 0) continue;
+        ends.add(posIdx(p.x, p.y));
+      }
+    }
+    if (ends.size < 2) return false;
+    const hit = move.positions.filter(p => ends.has(posIdx(p.x, p.y)));
+    return hit.length >= 2;
+  };
+
+  if (mustTouch.size > 0) {
+    const filtered = moves.filter(move =>
+      move.positions.some(p => mustTouch.has(posIdx(p.x, p.y))),
+    );
+    if (filtered.length > 0) moves = filtered;
+  }
+
+  const extra = moves.filter(
+    m =>
+      m.positions.length === required &&
+      !blocksBothWin2PairEnds(m) &&
+      !blocksSingleLive3BothEnds(m),
+  );
+  const pool = [baseMove, ...extra];
+  const dedup = new Set<string>();
+  let bestMove = baseMove;
+  let bestScore = evaluateRootDefenseScore(state, player, baseMove);
+  if (!bestScore) return baseMove;
+
+  for (const move of pool) {
+    const key = moveKey(move);
+    if (dedup.has(key)) continue;
+    dedup.add(key);
+    const score = evaluateRootDefenseScore(state, player, move);
+    if (!score) continue;
+    if (isBetterRootDefenseScore(score, bestScore)) {
+      bestScore = score;
+      bestMove = move;
+    }
+  }
+
+  return bestMove;
 }
 
 function findThreatRootMove(
@@ -2447,43 +2764,96 @@ function findThreatRootMove(
   if (oppWin1.length > 0) {
     const sorted = sortByCenter(oppWin1);
     if (stones === 1) {
-      return {
+      const base = {
         move: { player: rootPlayer, positions: [sorted[0]] },
         reason: 'block_opp_win1',
       };
+      return {
+        move: refineThreatRootDefenseMove(
+          state,
+          rootPlayer,
+          report,
+          oppReport,
+          base.reason,
+          base.move,
+        ),
+        reason: base.reason,
+      };
     }
     if (sorted.length >= 2) {
-      return {
+      const base = {
         move: { player: rootPlayer, positions: [sorted[0], sorted[1]] },
         reason: 'block_opp_win1_multi',
+      };
+      return {
+        move: refineThreatRootDefenseMove(
+          state,
+          rootPlayer,
+          report,
+          oppReport,
+          base.reason,
+          base.move,
+        ),
+        reason: base.reason,
       };
     }
     const primary = sorted[0];
     const avoid = new Set<number>([posIdx(primary.x, primary.y)]);
     const second = pickSecondFromThreatReport(state, report, avoid);
-    return {
+    const base = {
       move: { player: rootPlayer, positions: [primary, second] },
       reason: 'block_opp_win1',
+    };
+    return {
+      move: refineThreatRootDefenseMove(
+        state,
+        rootPlayer,
+        report,
+        oppReport,
+        base.reason,
+        base.move,
+      ),
+      reason: base.reason,
     };
   }
 
   if (oppReport.winIn2.length > 0) {
     const mv = buildBlockMoveForWin2Pairs(state, rootPlayer, report);
     if (mv) {
-      return { move: mv, reason: 'block_opp_win2' };
+      const reason = 'block_opp_win2';
+      return {
+        move: refineThreatRootDefenseMove(
+          state,
+          rootPlayer,
+          report,
+          oppReport,
+          reason,
+          mv,
+        ),
+        reason,
+      };
     }
   }
 
-  if (ENABLE_OPP_INITIATIVE_DEFENSE) {
-    const def = pickDefensiveRootMoveAgainstInitiative(
-      state,
-      rootPlayer,
-      report,
-      oppReport,
-    );
-    if (def) {
-      return { move: def, reason: 'block_opp_initiative' };
-    }
+  const def = pickDefensiveRootMoveAgainstInitiative(
+    state,
+    rootPlayer,
+    report,
+    oppReport,
+  );
+  if (def) {
+    const reason = 'block_opp_initiative';
+    return {
+      move: refineThreatRootDefenseMove(
+        state,
+        rootPlayer,
+        report,
+        oppReport,
+        reason,
+        def,
+      ),
+      reason,
+    };
   }
 
   return null;
@@ -2567,13 +2937,17 @@ export function pvsSearchBestMove(
   threatListCacheBlack.clear();
   threatListCacheWhite.clear();
   lastSearchNodeCount = 0;
+  currentSearchAborted = false;
   killerMoves.clear();
   lastAspirationWindows.length = 0;
   decayHistory();
 
   const maxDepth = Math.max(1, config.maxDepth ?? 8);
   const maxTime = config.timeLimitMs ?? 5000;
-  const baseTime = Math.min(maxTime, 3500);
+  const baseTime = Math.min(
+    maxTime,
+    Math.max(THREAT_TIME_BASE_MIN_MS, Math.floor(maxTime * THREAT_TIME_BASE_RATIO)),
+  );
   const timeBudget = Math.min(
     maxTime,
     computeThreatTimeFactor(rootState, rootPlayer, baseTime),
@@ -2609,8 +2983,90 @@ export function pvsSearchBestMove(
   const tacticalHintMoves: Move[] = [];
   let tacticalHintSet: Set<string> | undefined;
   let tacticalHintInfo: Record<string, number | string> | undefined;
+  const threatRootHintReasons = new Map<string, string>();
+  const vcdtRootHintReasons = new Map<string, 'double_live3_build' | 'vcdt_attack'>();
   const forcedDefenseMoves: Move[] = [];
   let forcedDefenseInfo: Record<string, number | string> | undefined;
+  let counterLive3HintInfo: Record<string, number> | undefined;
+
+  type RootDebugOptions = {
+    includeTacticalHintInfo?: boolean;
+    includeForcedDefenseInfo?: boolean;
+    includeCounterLive3HintInfo?: boolean;
+  };
+
+  const buildRootDebugInfo = (
+    mode: string,
+    extra?: Partial<AIMoveDebugInfo>,
+    options?: RootDebugOptions,
+  ): AIMoveDebugInfo => {
+    const info: AIMoveDebugInfo = {
+      engine: 'pvs+threat+zorp',
+      mode,
+      nodes: lastSearchNodeCount,
+      ttSize: transpositionTable.size,
+      ttClearsThisMove,
+      ...multithreadingHint,
+      ...debugSizes(),
+    };
+    if (options?.includeTacticalHintInfo && tacticalHintInfo) {
+      Object.assign(info, tacticalHintInfo);
+    }
+    if (options?.includeForcedDefenseInfo && forcedDefenseInfo) {
+      Object.assign(info, forcedDefenseInfo);
+    }
+    if (options?.includeCounterLive3HintInfo && counterLive3HintInfo) {
+      Object.assign(info, counterLive3HintInfo);
+    }
+    if (extra) Object.assign(info, extra);
+    return info;
+  };
+
+  const evaluateRootMove = (move: Move): number => {
+    const next = applyMoveWithWinner(rootState, move);
+    return evaluateWithThreatReport(
+      next,
+      rootPlayer,
+      searchWeights,
+      undefined,
+      patternEval,
+    );
+  };
+
+  const finalizeEvaluatedRootMove = (
+    move: Move,
+    mode: string,
+    extra?: Partial<AIMoveDebugInfo>,
+    options?: RootDebugOptions,
+  ): AIMoveDecision =>
+    finalizeDecision({
+      move,
+      score: evaluateRootMove(move),
+      debugInfo: buildRootDebugInfo(mode, extra, options),
+    });
+
+  const addRootHintMove = (
+    move: Move,
+    reason: 'double_live3_build' | 'vcdt_attack',
+  ): void => {
+    const key = moveKey(move);
+    if (!tacticalHintSet) tacticalHintSet = new Set<string>();
+    if (!tacticalHintSet.has(key)) {
+      tacticalHintSet.add(key);
+      tacticalHintMoves.push(move);
+    }
+    vcdtRootHintReasons.set(key, reason);
+  };
+
+  const addThreatRootHintMove = (move: Move, reason: string): void => {
+    const key = moveKey(move);
+    if (!tacticalHintSet) tacticalHintSet = new Set<string>();
+    if (!tacticalHintSet.has(key)) {
+      tacticalHintSet.add(key);
+      tacticalHintMoves.push(move);
+    }
+    threatRootHintReasons.set(key, reason);
+  };
 
   // 0锛夋牴鑺傜偣 VCDT锛氬繀鏉€ / 蹇呴槻 / 娲诲洓
   const { my: rootMyReport, opp: rootOppReport } = analyzeBothCached(
@@ -2627,56 +3083,56 @@ export function pvsSearchBestMove(
     traceDecisionEvent(traceId, 'pvsSearchBestMove', 'threat_root_hit', {
       reason: threatRoot.reason,
     });
-    const next = applyMoveWithWinner(rootState, threatRoot.move);
-    const opp = switchPlayer(rootPlayer);
-
-    const remainDepth = Math.max(0, maxDepth - 1);
-    let score: number;
-    let searchedDepth = 1;
-
-    if (remainDepth > 0) {
-      score = -pvs(
-        next,
-        rootPlayer,
-        opp,
-        -Infinity,
-        Infinity,
-        remainDepth,
-        searchWeights,
-        deadline,
-        true,
-        MAX_LOCAL_EXTENSION,
-        undefined,
-        patternEval,
-      );
-      searchedDepth = 1 + remainDepth;
-    } else {
-      score = evaluateWithThreatReport(
-        next,
-        rootPlayer,
-        searchWeights,
-        undefined,
-        patternEval,
-      );
-    }
-
-    lastSearchDepth = searchedDepth;
-
-    return finalizeDecision({
-      move: threatRoot.move,
-      score,
-      debugInfo: {
-        engine: 'pvs+threat+zorp',
-        mode: 'threat_root',
+    if (threatRoot.reason === 'block_opp_initiative') {
+      addThreatRootHintMove(threatRoot.move, threatRoot.reason);
+      traceDecisionEvent(traceId, 'pvsSearchBestMove', 'threat_root_hint', {
         reason: threatRoot.reason,
-        depth: searchedDepth,
-        nodes: lastSearchNodeCount,
-        ttSize: transpositionTable.size,
-        ttClearsThisMove,
-        ...multithreadingHint,
-        ...debugSizes(),
-      },
-    });
+      });
+    } else {
+      const next = applyMoveWithWinner(rootState, threatRoot.move);
+      const opp = switchPlayer(rootPlayer);
+
+      const remainDepth = Math.max(0, maxDepth - 1);
+      let score: number;
+      let searchedDepth = 1;
+
+      if (remainDepth > 0) {
+        score = -pvs(
+          next,
+          rootPlayer,
+          opp,
+          -Infinity,
+          Infinity,
+          remainDepth,
+          searchWeights,
+          deadline,
+          true,
+          MAX_LOCAL_EXTENSION,
+          undefined,
+          patternEval,
+        );
+        searchedDepth = 1 + remainDepth;
+      } else {
+        score = evaluateWithThreatReport(
+          next,
+          rootPlayer,
+          searchWeights,
+          undefined,
+          patternEval,
+        );
+      }
+
+      lastSearchDepth = searchedDepth;
+
+      return finalizeDecision({
+        move: threatRoot.move,
+        score,
+        debugInfo: buildRootDebugInfo('threat_root', {
+          reason: threatRoot.reason,
+          depth: searchedDepth,
+        }),
+      });
+    }
   }
   const tacticalDepth = Math.min(VCF_VCT_MAX_DEPTH, maxDepth);
   const tacticalTimeMs = Math.min(
@@ -2707,19 +3163,22 @@ export function pvsSearchBestMove(
     maxBranch: VCF_VCT_MAX_BRANCH,
   });
   if (tacticalHints) {
-    const hintKeys = new Set<string>();
+    const hintKeys = tacticalHintSet ? new Set<string>(tacticalHintSet) : new Set<string>();
+    let tacticalAdded = 0;
     for (const move of tacticalHints.moves) {
       if (!isLegalRootMove(move)) continue;
       const key = moveKey(move);
       if (hintKeys.has(key)) continue;
       hintKeys.add(key);
       tacticalHintMoves.push(move);
+      tacticalAdded += 1;
     }
-    if (tacticalHintMoves.length > 0) {
+    tacticalHintSet = hintKeys;
+    if (tacticalAdded > 0) {
       tacticalHintSet = hintKeys;
       tacticalHintInfo = {
         tacticalKind: tacticalHints.kind,
-        tacticalMoves: tacticalHintMoves.length,
+        tacticalMoves: tacticalAdded,
         tacticalNodes: tacticalHints.nodes,
         tacticalDepth: tacticalHints.depth,
       };
@@ -2735,30 +3194,17 @@ export function pvsSearchBestMove(
       traceDecisionEvent(traceId, 'pvsSearchBestMove', 'tactical_forced_line', {
         kind: tacticalHints.kind,
       });
-      const next = applyMoveWithWinner(rootState, lineMove);
-      const score = evaluateWithThreatReport(
-        next,
-        rootPlayer,
-        searchWeights,
-        undefined,
-        patternEval,
-      );
-      return finalizeDecision({
-        move: lineMove,
-        score,
-        debugInfo: {
-          engine: 'pvs+threat+zorp',
-          mode: tacticalHints.kind === 'vcf' ? 'vcf_root' : 'vct_root',
+      return finalizeEvaluatedRootMove(
+        lineMove,
+        tacticalHints.kind === 'vcf' ? 'vcf_root' : 'vct_root',
+        {
           reason: `${tacticalHints.kind}_forced`,
           depth: 0,
-          nodes: lastSearchNodeCount,
-          ttSize: transpositionTable.size,
-          ttClearsThisMove,
-          ...(tacticalHintInfo ?? {}),
-          ...multithreadingHint,
-          ...debugSizes(),
         },
-      });
+        {
+          includeTacticalHintInfo: true,
+        },
+      );
     }
   }
 
@@ -2820,31 +3266,18 @@ export function pvsSearchBestMove(
         traceDecisionEvent(traceId, 'pvsSearchBestMove', 'forced_defense_single', {
           kind: opponentHints.kind,
         });
-        const next = applyMoveWithWinner(rootState, forcedDefenseMoves[0]);
-        const score = evaluateWithThreatReport(
-          next,
-          rootPlayer,
-          searchWeights,
-          undefined,
-          patternEval,
-        );
-        return finalizeDecision({
-          move: forcedDefenseMoves[0],
-          score,
-          debugInfo: {
-            engine: 'pvs+threat+zorp',
-            mode: opponentHints.kind === 'vcf' ? 'vcf_defense' : 'vct_defense',
+        return finalizeEvaluatedRootMove(
+          forcedDefenseMoves[0],
+          opponentHints.kind === 'vcf' ? 'vcf_defense' : 'vct_defense',
+          {
             reason: 'tactical_defense',
             depth: 0,
-            nodes: lastSearchNodeCount,
-            ttSize: transpositionTable.size,
-            ttClearsThisMove,
-            ...(forcedDefenseInfo ?? {}),
-            ...(tacticalHintInfo ?? {}),
-            ...multithreadingHint,
-            ...debugSizes(),
           },
-        });
+          {
+            includeTacticalHintInfo: true,
+            includeForcedDefenseInfo: true,
+          },
+        );
       }
     }
   }
@@ -2859,29 +3292,7 @@ export function pvsSearchBestMove(
     );
     if (calmDoubleLive3) {
       traceDecisionEvent(traceId, 'pvsSearchBestMove', 'double_live3_build', {});
-      const next = applyMoveWithWinner(rootState, calmDoubleLive3);
-      const score = evaluateWithThreatReport(
-        next,
-        rootPlayer,
-        searchWeights,
-        undefined,
-        patternEval,
-      );
-      return finalizeDecision({
-        move: calmDoubleLive3,
-        score,
-        debugInfo: {
-          engine: 'pvs+threat+zorp',
-          mode: 'vcdt_root',
-          reason: 'double_live3_build',
-          depth: 0,
-          nodes: lastSearchNodeCount,
-          ttSize: transpositionTable.size,
-          ttClearsThisMove,
-          ...multithreadingHint,
-          ...debugSizes(),
-        },
-      });
+      addRootHintMove(calmDoubleLive3, 'double_live3_build');
     }
 
     const vcdtAttack = pickVcdtRootAttackMove(
@@ -2892,36 +3303,13 @@ export function pvsSearchBestMove(
     );
     if (vcdtAttack) {
       traceDecisionEvent(traceId, 'pvsSearchBestMove', 'vcdt_attack', {});
-      const next = applyMoveWithWinner(rootState, vcdtAttack);
-      const score = evaluateWithThreatReport(
-        next,
-        rootPlayer,
-        searchWeights,
-        undefined,
-        patternEval,
-      );
-      return finalizeDecision({
-        move: vcdtAttack,
-        score,
-        debugInfo: {
-          engine: 'pvs+threat+zorp',
-          mode: 'vcdt_root',
-          reason: 'vcdt_attack',
-          depth: 0,
-          nodes: lastSearchNodeCount,
-          ttSize: transpositionTable.size,
-          ttClearsThisMove,
-          ...multithreadingHint,
-          ...debugSizes(),
-        },
-      });
+      addRootHintMove(vcdtAttack, 'vcdt_attack');
     }
   }
 
     // Connect6: 对手只有“单条活三”时，避免“二子两头都堵”的俗手；
     // 提前塞入“挡一头 + 顺手造势”的候选，让主搜更容易找到反击型防守。
     const counterLive3HintMoves: Move[] = [];
-    let counterLive3HintInfo: Record<string, number> | undefined;
     const stones = requiredStones;
     if (stones === 2 && !hasOpponentInitiative(rootState, rootOppReport)) {
       const oppVal = rootPlayer === 'BLACK' ? 2 : 1;
@@ -2964,21 +3352,8 @@ export function pvsSearchBestMove(
       MAX_ROOT_CANDIDATE_POINTS,
     );
     let moveCombos = generateMoves(rootState, candidates, rootPlayer);
-    if (tacticalHintMoves.length > 0) {
-      const existing = new Set(moveCombos.map(moveKey));
-      const prepend = tacticalHintMoves.filter(m => !existing.has(moveKey(m)));
-      if (prepend.length > 0) {
-        moveCombos = [...prepend, ...moveCombos];
-      }
-    }
-    if (counterLive3HintMoves.length > 0) {
-      const existing = new Set(moveCombos.map(moveKey));
-      const prepend = counterLive3HintMoves.filter(m => !existing.has(moveKey(m)));
-      if (prepend.length > 0) {
-        moveCombos = [...prepend, ...moveCombos];
-      }
-    }
-
+    moveCombos = prependUniqueMoves(moveCombos, tacticalHintMoves);
+    moveCombos = prependUniqueMoves(moveCombos, counterLive3HintMoves);
     if (forcedDefenseMoves.length > 0) {
       moveCombos = forcedDefenseMoves;
     }
@@ -2988,26 +3363,25 @@ export function pvsSearchBestMove(
       traceDecisionEvent(traceId, 'pvsSearchBestMove', 'no_candidate_fallback', {});
       return finalizeDecision({
         move: fallback,
-      score: evaluateWithThreatReport(
-        rootState,
-        rootPlayer,
-        searchWeights,
-        undefined,
-        patternEval,
-      ),
-      debugInfo: {
-          engine: 'pvs+threat+zorp',
-          mode: 'no_candidate_fallback',
-          depth: 0,
-          nodes: 0,
-          ttSize: transpositionTable.size,
-          ttClearsThisMove,
-          ...(tacticalHintInfo ?? {}),
-          ...(forcedDefenseInfo ?? {}),
-          ...(counterLive3HintInfo ?? {}),
-          ...multithreadingHint,
-          ...debugSizes(),
-        },
+        score: evaluateWithThreatReport(
+          rootState,
+          rootPlayer,
+          searchWeights,
+          undefined,
+          patternEval,
+        ),
+        debugInfo: buildRootDebugInfo(
+          'no_candidate_fallback',
+          {
+            depth: 0,
+            nodes: 0,
+          },
+          {
+            includeTacticalHintInfo: true,
+            includeForcedDefenseInfo: true,
+            includeCounterLive3HintInfo: true,
+          },
+        ),
       });
     }
 
@@ -3083,6 +3457,10 @@ export function pvsSearchBestMove(
       iterBestScore = -Infinity;
 
       for (let i = 0; i < sorted.length; i++) {
+        if (currentSearchAborted) {
+          failed = true;
+          break;
+        }
         const move = sorted[i];
         const next = applyMoveWithWinner(rootState, move);
         const opp = switchPlayer(rootPlayer);
@@ -3134,6 +3512,10 @@ export function pvsSearchBestMove(
               patternEval,
             );
           }
+        }
+        if (currentSearchAborted) {
+          failed = true;
+          break;
         }
 
         if (score > iterBestScore) {
@@ -3210,6 +3592,19 @@ export function pvsSearchBestMove(
       patternEval,
     );
   }
+  const bestKey = moveKey(bestMove);
+  const selectedThreatRootHintReason = threatRootHintReasons.get(bestKey);
+  const selectedVcdtHintReason = vcdtRootHintReasons.get(bestKey);
+  const finalMode = selectedThreatRootHintReason
+    ? 'threat_root'
+    : selectedVcdtHintReason
+      ? 'vcdt_root'
+      : 'normal';
+  const finalReason = selectedThreatRootHintReason
+    ? `${selectedThreatRootHintReason}_hint_selected`
+    : selectedVcdtHintReason
+      ? `${selectedVcdtHintReason}_hint_selected`
+      : undefined;
 
       traceDecisionEvent(traceId, 'pvsSearchBestMove', 'normal_search_complete', {
         depth: searchedDepth,
@@ -3218,18 +3613,16 @@ export function pvsSearchBestMove(
       return finalizeDecision({
         move: bestMove,
         score: bestScore,
-        debugInfo: {
-            engine: 'pvs+threat+zorp',
-          mode: 'normal',
-          depth: searchedDepth,
-          nodes: lastSearchNodeCount,
-          ttSize: transpositionTable.size,
-          ttClearsThisMove,
-          ...(tacticalHintInfo ?? {}),
-          ...(forcedDefenseInfo ?? {}),
-          ...multithreadingHint,
-          ...debugSizes(),
-        },
+        debugInfo: buildRootDebugInfo(
+          finalMode,
+          finalReason
+            ? { depth: searchedDepth, reason: finalReason }
+            : { depth: searchedDepth },
+          {
+            includeTacticalHintInfo: true,
+            includeForcedDefenseInfo: true,
+          },
+        ),
       });
 }
 

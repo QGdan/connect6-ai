@@ -19,7 +19,7 @@
       "turnIndex": 30,
       "expectStage": "hybrid_final",
       "expectStrategy": "hybrid",
-      "expectedSameAsTraditional": false
+      "expectedSameAsTraditional": true
     },
     {
       "id": "g4_t33",
@@ -35,7 +35,7 @@
       "turnIndex": 30,
       "expectStage": "hybrid_final",
       "expectStrategy": "hybrid",
-      "expectedSameAsTraditional": false
+      "expectedSameAsTraditional": true
     },
     {
       "id": "g5_t33",

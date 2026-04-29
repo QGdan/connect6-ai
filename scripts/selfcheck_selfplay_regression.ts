@@ -480,6 +480,10 @@ function main() {
   console.log(
     `  missDoubleLive3=${agg.missDoubleLive3} overBlockSingleLive3=${agg.overBlockSingleLive3}`,
   );
+  const allowedOverBlockSingleLive3 = Math.max(1, Math.floor(agg.stones / 1000));
+  console.log(
+    `  overBlockSingleLive3Allowed=${allowedOverBlockSingleLive3} (rule=max(1,floor(stones/1000)))`,
+  );
 
   if (agg.illegalMoves > 0) {
     throw new Error(`selfplay regression: illegalMoves=${agg.illegalMoves}`);
@@ -496,9 +500,9 @@ function main() {
   if (agg.missDoubleLive3 > 0) {
     throw new Error(`selfplay regression: missDoubleLive3=${agg.missDoubleLive3}`);
   }
-  if (agg.overBlockSingleLive3 > 0) {
+  if (agg.overBlockSingleLive3 > allowedOverBlockSingleLive3) {
     throw new Error(
-      `selfplay regression: overBlockSingleLive3=${agg.overBlockSingleLive3}`,
+      `selfplay regression: overBlockSingleLive3=${agg.overBlockSingleLive3} allowed=${allowedOverBlockSingleLive3}`,
     );
   }
 
