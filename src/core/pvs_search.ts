@@ -69,7 +69,7 @@ interface ThreatInfo {
   defenseCost?: number;
 }
 
-// ===== Threat 缂撳瓨锛堝崟娆℃悳绱㈠懆鏈燂級=====
+// ===== Threat 缓存（单次搜索周期）=====
 const THREAT_LIST_CACHE_LIMIT = 100_000;
 const threatListCacheBlack = new Map<bigint, ThreatInfo[]>();
 const threatListCacheWhite = new Map<bigint, ThreatInfo[]>();
@@ -466,10 +466,10 @@ const MIN_HISTORY_THRESHOLD = 100;
 
 const ASPIRATION_WINDOW = 120_000;
 const QUIESCENCE_MAX_DEPTH = 2;
-const MAX_LOCAL_EXTENSION = 2; // 閬囧埌寮哄▉鑳?寮烘潃鏃讹紝灞€閮ㄥ鎼?1 灞?
-const MAX_TIME_THREAT_BOOST = 1.6; // 鍗辨€ュ眬闈㈡渶澶氭斁澶?1.6x 鏃堕棿
+const MAX_LOCAL_EXTENSION = 2; // 遇到强威胁/强杀时，局部最多延伸 1 层
+const MAX_TIME_THREAT_BOOST = 1.6; // 危急局面最多放大 1.6x 时间
 
-// ===== 缃崲琛?=====
+// ===== 置换表 =====
 let lastEvalSignature: string | null = null;
 
 function formatEvalSig(value: unknown): string {
@@ -520,7 +520,7 @@ function storeTT(
   );
 }
 
-// ===== history 鍚彂 =====
+// ===== history 启发 =====
 function updateHistory(player: Player, pos: Position, depth: number): void {
   updateHistoryStore(player, pos, depth, BOARD_SIZE, MAX_HISTORY_ENTRIES);
 }
@@ -551,7 +551,7 @@ function computeThreatTimeFactor(
   base: number,
   cached?: { my?: ThreatInfo[]; opp?: ThreatInfo[] },
 ): number {
-  // 瀵规墜鏈夊嵆鏃跺弻鐐瑰繀鏉€鎴栧ぇ閲忔椿鍥涙椂锛岄€傚害鏀惧鏃堕棿锛涜嚜宸辨湁鍗宠儨鏃剁暐寰斁瀹斤紙闄嶄綆骞呭害浠ラ槻瓒呮椂锛?
+  // 对手有即时双点必杀或大量活四时，适度放宽时间；自己有即胜时轻微放宽（降低幅度防止超时）
   const opp = switchPlayer(player);
   const myThreats = cached?.my ?? cachedThreats(state, player);
   const oppThreats = cached?.opp ?? cachedThreats(state, opp);
@@ -579,7 +579,7 @@ function computeLocalExtension(
   toMove: Player,
   cached?: { self?: ThreatInfo[]; opp?: ThreatInfo[] },
 ): number {
-  // 鍦ㄢ€滃繀椤昏鐪嬫竻鈥濈殑灞€闈㈠鎼?1 灞傦細鍙屾柟鍗宠儨/鍙岀偣蹇呮潃/娲诲洓
+  // 在“必须看清”的局面多延伸 1 层：双方即胜/双点必杀/活四
   const opp = switchPlayer(toMove);
   const myThreats = cached?.self ?? cachedThreats(state, toMove);
   const oppThreats = cached?.opp ?? cachedThreats(state, opp);
@@ -629,7 +629,7 @@ function computeLocalExtension(
   return 0;
 }
 
-// ===== 闈欐€佹悳绱?=====
+// ===== 静态搜索 =====
 function quiescenceSearch(
   state: GameState,
   rootPlayer: Player,
@@ -653,13 +653,13 @@ function quiescenceSearch(
   if (standPat >= beta) return standPat;
   if (standPat > alpha) alpha = standPat;
 
-  // 鍙墿灞曟垬鏈浉鍏崇殑琛屽姩锛氳耽鐐?/ 蹇呮尅鐐?/ 灏戦噺楂樹紭鍏?RZOP
+  // 只扩展战术相关行动：赢点 / 必挡点 / 少量高优先 RZOP
   const moves: Move[] = [];
   const stones = getStonesToPlace(state.moveNumber, toMove);
   const myThreats = cachedThreats(state, toMove);
   const oppThreats = cachedThreats(state, switchPlayer(toMove));
 
-  // 鈶?鎴戞柟鐩存帴璧㈢偣锛?+1锛?
+  // 1) 我方直接赢点（5+1）
   for (const t of myThreats) {
     if (!(t.isWinning && t.threatLevel === 0)) continue;
     if (stones === 1) {
@@ -670,7 +670,7 @@ function quiescenceSearch(
     }
   }
 
-  // 鈶?蹇呮尅鐐癸細瀵规柟 5+1 鎴?4+2锛坉efenseCost=1锛?
+  // 2) 必挡点：对方 5+1 或 4+2（defenseCost=1）
   const mustDefend: Position[] = [];
   for (const t of oppThreats) {
     if (t.threatLevel === 0 && t.isWinning) {
@@ -715,7 +715,7 @@ function quiescenceSearch(
     }
   }
 
-  // 鈶?琛ュ厖灏戦噺 top-K RZOP 鍊欓€夛紝閬垮厤閬楁紡涓诲姩鎵?
+  // 3) 补充少量 top-K RZOP 候选，避免遗漏主动手
   const rzopTopK = generateRZOPCandidates(state).slice(0, 8);
   if (rzopTopK.length > 0) {
     const rzopMoves = generateMoves(state, rzopTopK, toMove).slice(
@@ -725,7 +725,7 @@ function quiescenceSearch(
     moves.push(...rzopMoves);
   }
 
-  // 鍘婚噸锛岄檺鍒舵暟閲忥紝閬垮厤鐖嗙偢
+  // 去重并限制数量，避免分支爆炸
   const seen = new Set<number>();
   const dedup: Move[] = [];
   for (const m of moves) {
@@ -759,7 +759,7 @@ function quiescenceSearch(
   return alpha;
 }
 
-// ===== PVS 鏍稿績 =====
+// ===== PVS 核心 =====
 let lastSearchNodeCount = 0;
 let lastSearchDepth = 0;
 let currentSearchAborted = false;
@@ -932,7 +932,7 @@ function pvs(
         patternEval,
       );
     } else {
-      // PVS 缂╃獥
+      // PVS 窄窗（zero-window）
       score = -pvs(
         next,
         rootPlayer,
@@ -1017,7 +1017,7 @@ function pvs(
   return bestScore;
 }
 
-// ===== 鍊欓€夌敓鎴愪笌鎺掑簭 =====
+// ===== 候选生成与排序 =====
 function generateSingleStoneMoves(
   state: GameState,
   candidates: Position[],
@@ -1053,16 +1053,16 @@ function generateTwoStoneMoves(
   const maxCombos = Math.min((n * (n - 1)) / 2, 1000);
   const maxGenerated = Math.min(maxCombos, TWO_STONE_MAX_GENERATED);
 
-  // 鍘婚噸宸ュ叿锛氬悓涓€瀵圭偣鍙敓鎴愪竴娆?
+  // 去重工具：同一对点只生成一次
   const seen = new Set<number>();
   const addMove = (p1: Position, p2: Position) => {
-    // 涓嶈兘鏄悓涓€涓偣
+    // 不能是同一个点
   if (p1.x === p2.x && p1.y === p2.y) return;
-    // 瑕佺‘瀹炴槸绌轰綅
+    // 必须都是空位
   if (state.board[p1.y][p1.x] !== 0) return;
     if (state.board[p2.y][p2.x] !== 0) return;
 
-    // 鏃犲簭 key锛堜繚璇?(a,b) 鍜?(b,a) 瑙嗕负鍚屼竴瀵癸級
+    // 无序 key（保证 (a,b) 和 (b,a) 视为同一对）
     const aFirst =
       p1.x < p2.x || (p1.x === p2.x && p1.y <= p2.y) ? p1 : p2;
     const bFirst = aFirst === p1 ? p2 : p1;
@@ -1076,7 +1076,7 @@ function generateTwoStoneMoves(
     }
   };
 
-  // ---------- 1) 鍏堝鐞嗗己鍒舵敾闃诧細VCDT 鍙岀偣蹇呮潃 ----------
+  // ---------- 1) 先处理强制攻防：VCDT 双点必杀 ----------
   const myReport = cachedAnalyzeThreats(state, player);
   const oppReport = cachedAnalyzeThreats(state, switchPlayer(player));
   const oppVal = player === 'BLACK' ? 2 : 1;
@@ -1110,7 +1110,7 @@ function generateTwoStoneMoves(
   addWinPairs(myReport.winPairs);
   if (moves.length >= maxGenerated) return moves;
 
-  // ---------- 2) 椤哄簭鍙岃惤瀛?beam锛氬厛鎵╋紝鍐嶇瓫锛屾渶鍚庢敹缂?
+  // ---------- 2) 顺序双落子 beam：先扩，再筛，最后收敛 ----------
   const BOARD_CENTER = (BOARD_SIZE - 1) / 2;
   const lastPositions = state.lastMove?.positions ?? [];
   const lastDist = (p: Position): number => {
@@ -1216,7 +1216,7 @@ function generateTwoStoneMoves(
     }
   }
 
-  // 淇濈暀涓€灞傚叜鐢ㄥ厹搴曪紝閬垮厤鏋佺灞€闈㈠€欓€変笉瓒炽€?
+  // 保留一层通用兜底，避免极端局面候选不足
   if (moves.length < Math.min(maxGenerated, 24)) {
     const pri = scored.slice(0, Math.min(24, scored.length)).map(s => s.p);
     for (let i = 0; i < pri.length && moves.length < maxGenerated; i += 1) {
@@ -1848,13 +1848,13 @@ function orderMoves(
   return scored.map(s => s.move);
 }
 
-// ===== VCDT 鏍硅妭鐐瑰喅绛?=====
+// ===== VCDT 根节点决策 =====
 
-// 閽堝鈥滃鎵嬩竴鎵嬩袱瀛愬繀鏉€锛坱hreatLevel=1锛夆€濈殑涓撻棬闃插畧锛?
-// 灏介噺鎵句竴涓偣锛岃兘鍚屾椂鐮存帀鎵€鏈夊繀鏉€瀵癸紱
-// 濡傛灉鍙湁涓€涓?pair锛堜袱涓偣锛夛紝灏辩洿鎺ヤ袱澶撮兘鍫点€?
+// 针对“对手一手两子必杀（threatLevel=1）”的专门防守：
+// 尽量找一个点，能同时破掉所有必杀对；
+// 如果只有一个 pair（两个点），就直接两头都堵。
 
-// 涓衡€滅浜岄瀛愨€濆仛鏇磋仾鏄庣殑閫夋嫨锛氳鐩栧鏂瑰▉鑳?宸辨柟濞佽儊 > 璺濈/涓績
+// 第二颗子优先做聪明补强：覆盖对方威胁 > 己方威胁 > 距离/中心
 function pickSmartSecond(
   state: GameState,
   player: Player,
@@ -2840,7 +2840,7 @@ function pickVcdtRootAttackMove(
   return { player: rootPlayer, positions: [primary, second] };
 }
 
-// ===== 鏍规悳绱紙甯?VCDT + 杩唬鍔犳繁锛?=====
+// ===== 根搜索（带 VCDT + 迭代加深）=====
 
 export function pvsSearchBestMove(
   rootState: GameState,
@@ -2848,7 +2848,7 @@ export function pvsSearchBestMove(
   weights: EvaluationWeights,
   config: SearchConfig,
 ): AIMoveDecision {
-  // 娓呯悊涓€娆℃悳绱㈠懆鏈熺殑 VCDT 缂撳瓨
+  // 清理一次搜索周期的 VCDT 缓存
   const searchWeights = {
     ...weights,
     threat_defense_weight: 1,
@@ -2929,6 +2929,7 @@ export function pvsSearchBestMove(
   let tacticalHintInfo: Record<string, number | string> | undefined;
   const threatRootHintReasons = new Map<string, string>();
   const vcdtRootHintReasons = new Map<string, 'double_live3_build' | 'vcdt_attack'>();
+  const tacticalRootHintKinds = new Map<string, 'vcf' | 'vct'>();
   const forcedDefenseMoves: Move[] = [];
   let forcedDefenseInfo: Record<string, number | string> | undefined;
   let counterLive3HintInfo: Record<string, number> | undefined;
@@ -2989,30 +2990,34 @@ export function pvsSearchBestMove(
       debugInfo: buildRootDebugInfo(mode, extra, options),
     });
 
+  const ensureTacticalHintSet = (): Set<string> => {
+    if (!tacticalHintSet) tacticalHintSet = new Set<string>();
+    return tacticalHintSet;
+  };
+
+  const addTacticalHintMove = (move: Move): { key: string; added: boolean } => {
+    const key = moveKey(move);
+    const hintSet = ensureTacticalHintSet();
+    if (hintSet.has(key)) return { key, added: false };
+    hintSet.add(key);
+    tacticalHintMoves.push(move);
+    return { key, added: true };
+  };
+
   const addRootHintMove = (
     move: Move,
     reason: 'double_live3_build' | 'vcdt_attack',
   ): void => {
-    const key = moveKey(move);
-    if (!tacticalHintSet) tacticalHintSet = new Set<string>();
-    if (!tacticalHintSet.has(key)) {
-      tacticalHintSet.add(key);
-      tacticalHintMoves.push(move);
-    }
+    const { key } = addTacticalHintMove(move);
     vcdtRootHintReasons.set(key, reason);
   };
 
   const addThreatRootHintMove = (move: Move, reason: string): void => {
-    const key = moveKey(move);
-    if (!tacticalHintSet) tacticalHintSet = new Set<string>();
-    if (!tacticalHintSet.has(key)) {
-      tacticalHintSet.add(key);
-      tacticalHintMoves.push(move);
-    }
+    const { key } = addTacticalHintMove(move);
     threatRootHintReasons.set(key, reason);
   };
 
-  // 0锛夋牴鑺傜偣 VCDT锛氬繀鏉€ / 蹇呴槻 / 娲诲洓
+  // 0) 根节点 VCDT：必杀 / 必防 / 活四
   const { my: rootMyReport, opp: rootOppReport } = analyzeBothCached(
     rootState,
     rootPlayer,
@@ -3083,6 +3088,28 @@ export function pvsSearchBestMove(
     VCF_VCT_MAX_TIME_MS,
     Math.max(6, Math.floor(timeBudget * VCF_VCT_TIME_RATIO)),
   );
+  const tacticalSearchOptions = {
+    maxDepth: tacticalDepth,
+    maxNodes: VCF_VCT_MAX_NODES,
+    timeLimitMs: tacticalTimeMs,
+    maxBranch: VCF_VCT_MAX_BRANCH,
+  };
+  const tacticalMode = (
+    kind: 'vcf' | 'vct',
+    suffix: 'root' | 'defense',
+  ): string => `${kind}_${suffix}`;
+  const opponentStonesAfterRoot = getStonesToPlace(
+    rootState.moveNumber + 1,
+    switchPlayer(rootPlayer),
+  );
+  const hasHardOpponentThreat = (report: ThreatReport): boolean =>
+    report.winIn1.length > 0 ||
+    (opponentStonesAfterRoot >= 2 && report.winIn2.length > 0) ||
+    report.byType.LIVE4.length > 0 ||
+    report.byType.CHARGE4.length > 0 ||
+    report.byType.DOUBLE_FOUR.length > 0 ||
+    report.byType.FOUR_THREE.length > 0;
+  const rootOppHardThreat = hasHardOpponentThreat(rootOppReport);
   const requiredStones = getStonesToPlace(rootState.moveNumber, rootPlayer);
   const isLegalRootMove = (move?: Move | null): move is Move => {
     if (!move) return false;
@@ -3100,26 +3127,19 @@ export function pvsSearchBestMove(
     return true;
   };
 
-  const tacticalHints = findVcfVctRootHints(rootState, rootPlayer, {
-    maxDepth: tacticalDepth,
-    maxNodes: VCF_VCT_MAX_NODES,
-    timeLimitMs: tacticalTimeMs,
-    maxBranch: VCF_VCT_MAX_BRANCH,
-  });
+  const tacticalHints = findVcfVctRootHints(
+    rootState,
+    rootPlayer,
+    tacticalSearchOptions,
+  );
   if (tacticalHints) {
-    const hintKeys = tacticalHintSet ? new Set<string>(tacticalHintSet) : new Set<string>();
     let tacticalAdded = 0;
     for (const move of tacticalHints.moves) {
       if (!isLegalRootMove(move)) continue;
-      const key = moveKey(move);
-      if (hintKeys.has(key)) continue;
-      hintKeys.add(key);
-      tacticalHintMoves.push(move);
+      if (!addTacticalHintMove(move).added) continue;
       tacticalAdded += 1;
     }
-    tacticalHintSet = hintKeys;
     if (tacticalAdded > 0) {
-      tacticalHintSet = hintKeys;
       tacticalHintInfo = {
         tacticalKind: tacticalHints.kind,
         tacticalMoves: tacticalAdded,
@@ -3132,45 +3152,28 @@ export function pvsSearchBestMove(
     }
   }
 
-  if (tacticalHints?.line && tacticalHints.line.length > 0) {
-    const lineMove = tacticalHints.line[0];
-    if (isLegalRootMove(lineMove)) {
-      traceDecisionEvent(traceId, 'pvsSearchBestMove', 'tactical_forced_line', {
-        kind: tacticalHints.kind,
-      });
-      return finalizeEvaluatedRootMove(
-        lineMove,
-        tacticalHints.kind === 'vcf' ? 'vcf_root' : 'vct_root',
-        {
-          reason: `${tacticalHints.kind}_forced`,
-          depth: 0,
-        },
-        {
-          includeTacticalHintInfo: true,
-        },
-      );
-    }
-  }
+  const tacticalForcedLineMove =
+    tacticalHints?.line && tacticalHints.line.length > 0
+      ? tacticalHints.line[0]
+      : null;
+  const tacticalForcedLineLegal =
+    tacticalForcedLineMove !== null && isLegalRootMove(tacticalForcedLineMove)
+      ? tacticalForcedLineMove
+      : null;
 
   const opponent = switchPlayer(rootPlayer);
-  const opponentHints = findVcfVctRootHints(rootState, opponent, {
-    maxDepth: tacticalDepth,
-    maxNodes: VCF_VCT_MAX_NODES,
-    timeLimitMs: tacticalTimeMs,
-    maxBranch: VCF_VCT_MAX_BRANCH,
-  });
+  const opponentHints = findVcfVctRootHints(
+    rootState,
+    opponent,
+    tacticalSearchOptions,
+  );
   if (opponentHints?.line && opponentHints.line.length > 0) {
     const defenseCandidatesRaw = buildVcfVctDefenseMoves(
       rootState,
       rootPlayer,
       opponent,
       opponentHints.kind,
-      {
-        maxDepth: tacticalDepth,
-        maxNodes: VCF_VCT_MAX_NODES,
-        timeLimitMs: tacticalTimeMs,
-        maxBranch: VCF_VCT_MAX_BRANCH,
-      },
+      tacticalSearchOptions,
     );
     const defenseCandidates: Move[] = [];
     const seen = new Set<string>();
@@ -3182,19 +3185,13 @@ export function pvsSearchBestMove(
       defenseCandidates.push(move);
       if (defenseCandidates.length >= VCF_VCT_DEFENSE_CHECKS) break;
     }
-    const defenseCheckOptions = {
-      maxDepth: tacticalDepth,
-      maxNodes: VCF_VCT_MAX_NODES,
-      timeLimitMs: tacticalTimeMs,
-      maxBranch: VCF_VCT_MAX_BRANCH,
-    };
     for (const move of defenseCandidates) {
       const applied = tryApplyMoveWithWinner(rootState, move);
       if (!applied.ok) continue;
       const response = findVcfVctRootHints(
         applied.state,
         opponent,
-        defenseCheckOptions,
+        tacticalSearchOptions,
       );
       if (!response) {
         forcedDefenseMoves.push(move);
@@ -3212,7 +3209,7 @@ export function pvsSearchBestMove(
         });
         return finalizeEvaluatedRootMove(
           forcedDefenseMoves[0],
-          opponentHints.kind === 'vcf' ? 'vcf_defense' : 'vct_defense',
+          tacticalMode(opponentHints.kind, 'defense'),
           {
             reason: 'tactical_defense',
             depth: 0,
@@ -3224,6 +3221,62 @@ export function pvsSearchBestMove(
         );
       }
     }
+  }
+
+  if (tacticalForcedLineLegal) {
+    const lineMove = tacticalForcedLineLegal;
+    const lineKey = moveKey(lineMove);
+    const isVctLine = tacticalHints?.kind === 'vct';
+    const hasDefenseGate =
+      forcedDefenseMoves.length > 0 || rootOppHardThreat;
+    let unsafeUnderGate = false;
+    if (!isVctLine && hasDefenseGate) {
+      const next = applyMoveWithWinner(rootState, lineMove);
+      const nextOppReport = analyzeCached(next, opponent);
+      unsafeUnderGate = hasHardOpponentThreat(nextOppReport);
+    }
+
+    if (
+      !isVctLine &&
+      !unsafeUnderGate &&
+      forcedDefenseMoves.length === 0 &&
+      !rootOppHardThreat
+    ) {
+      traceDecisionEvent(traceId, 'pvsSearchBestMove', 'tactical_forced_line', {
+        kind: tacticalHints?.kind,
+      });
+      return finalizeEvaluatedRootMove(
+        lineMove,
+        tacticalMode(tacticalHints!.kind, 'root'),
+        {
+          reason: `${tacticalHints!.kind}_forced`,
+          depth: 0,
+        },
+        {
+          includeTacticalHintInfo: true,
+        },
+      );
+    }
+
+    addTacticalHintMove(lineMove);
+    if (tacticalHints) {
+      tacticalRootHintKinds.set(lineKey, tacticalHints.kind);
+    }
+    traceDecisionEvent(
+      traceId,
+      'pvsSearchBestMove',
+      'tactical_forced_line_deferred',
+      {
+        kind: tacticalHints?.kind,
+        reason: isVctLine
+          ? 'vct_hint_only'
+          : unsafeUnderGate
+            ? 'defense_gate_unsafe'
+            : hasDefenseGate
+              ? 'defense_gate_active'
+              : 'deferred_to_root_search',
+      },
+    );
   }
 
 
@@ -3289,7 +3342,7 @@ export function pvsSearchBestMove(
       }
     }
 
-    // 1锛塕ZOP 鐢熸垚鏍瑰€欓€?
+    // 1) RZOP 生成根候选
     const candidates = collectThreatCandidates(
       rootState,
       rootPlayer,
@@ -3352,7 +3405,7 @@ export function pvsSearchBestMove(
       moveCombos = scored.slice(0, MAX_ROOT_MOVE_COMBOS).map(s => s.move);
     }
 
-  // 2锛夎凯浠ｅ姞娣?PVS
+  // 2) 迭代加深 PVS
   let bestMove = moveCombos[0];
   let bestScore = -Infinity;
   let searchedDepth = 0;
@@ -3474,7 +3527,7 @@ export function pvsSearchBestMove(
         }
       }
 
-      if (failed) break; // ??????????
+      if (failed) break; // 本深度失败，直接退出 aspiration 重试
 
       const now = getCurrentTime();
       const timeLeftRetry = deadline - now;
@@ -3520,7 +3573,7 @@ export function pvsSearchBestMove(
       bestScore = iterBestScore;
       searchedDepth = d;
     } else {
-      // ??????????????????????
+      // 当前深度未完整收敛，保留上一层结果
       break;
     }
   }
@@ -3538,14 +3591,19 @@ export function pvsSearchBestMove(
   }
   const bestKey = moveKey(bestMove);
   const selectedThreatRootHintReason = threatRootHintReasons.get(bestKey);
+  const selectedTacticalRootKind = tacticalRootHintKinds.get(bestKey);
   const selectedVcdtHintReason = vcdtRootHintReasons.get(bestKey);
   const finalMode = selectedThreatRootHintReason
     ? 'threat_root'
+    : selectedTacticalRootKind
+      ? tacticalMode(selectedTacticalRootKind, 'root')
     : selectedVcdtHintReason
       ? 'vcdt_root'
       : 'normal';
   const finalReason = selectedThreatRootHintReason
     ? `${selectedThreatRootHintReason}_hint_selected`
+    : selectedTacticalRootKind
+      ? `${selectedTacticalRootKind}_forced_hint_selected`
     : selectedVcdtHintReason
       ? `${selectedVcdtHintReason}_hint_selected`
       : undefined;

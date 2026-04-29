@@ -44,7 +44,10 @@ import { MCTSConnect6AI } from './core/mcts_ai_engine';
 import { MCTSParallelRunner } from './core/mcts_worker_pool';
 import { HybridStrategyManager } from './strategy/hybrid_strategy';
 import { PerformanceMonitor } from './strategy/performance_monitor';
-import { getOpeningMove } from './core/opening_book';
+import {
+  getOpeningMove,
+  getOpeningMoveCandidates,
+} from './core/opening_book';
 import { SelfPlayOptimizer } from './core/self_play_optimizer';
 import { computeRoadSuggestions } from './core/road_suggestions';
 import { generateLocalCandidates } from './core/local_candidates';
@@ -94,7 +97,7 @@ const initialWeights: EvaluationWeights = {
 // 控制思考时间
 const pvsConfig: SearchConfig = {
   maxDepth: 5,
-  timeLimitMs: 5000,
+  timeLimitMs: 10000,
   useMultithreading: false,
 };
 
@@ -217,6 +220,9 @@ const scoreToWinProb = (score: number): number => {
 };
 
 const OPENING_PHASE_MAX_MOVE_NUMBER = 10;
+const AIVSAI_OPENING_DIVERSITY_MAX_MOVE_NUMBER = 8;
+const AIVSAI_OPENING_RANDOM_TOP_K = 3;
+const AIVSAI_OPENING_RANDOM_WEIGHT_DROP = 0.03;
 
 function switchPlayer(player: Player): Player {
   return player === 'BLACK' ? 'WHITE' : 'BLACK';
@@ -809,6 +815,46 @@ const MainApp: React.FC = () => {
           hybridTurnIndexForDisplay,
         );
 
+  const pickOpeningMoveForMode = useCallback(
+    (
+      current: GameState,
+      player: Player,
+      requiredStones: number,
+    ): Move | null => {
+      const normalizeMove = (move: Move | null): Move | null => {
+        if (!move) return null;
+        let positions = move.positions;
+        if (requiredStones === 1 && positions.length > 1) {
+          positions = [positions[0]];
+        }
+        if (positions.length !== requiredStones) return null;
+        return {
+          player: move.player,
+          positions: positions.map(p => ({ x: p.x, y: p.y })),
+        };
+      };
+
+      const shouldDiversifyOpening =
+        gameMode === 'AIVSAI' &&
+        current.moveNumber <= AIVSAI_OPENING_DIVERSITY_MAX_MOVE_NUMBER;
+      if (shouldDiversifyOpening) {
+        const candidates = getOpeningMoveCandidates(current, player, {
+          maxCount: AIVSAI_OPENING_RANDOM_TOP_K,
+          maxWeightDrop: AIVSAI_OPENING_RANDOM_WEIGHT_DROP,
+        });
+        if (candidates.length > 0) {
+          const idx = Math.floor(Math.random() * candidates.length);
+          const sampled = candidates[idx] ?? candidates[0];
+          const normalized = normalizeMove(sampled);
+          if (normalized) return normalized;
+        }
+      }
+
+      return normalizeMove(getOpeningMove(current, player));
+    },
+    [gameMode],
+  );
+
   // 根据策略模式，给当前局面选一手 AI 棋
   const decideAIMove = useCallback(
     async (current: GameState, player: Player): Promise<AIMoveDecision> => {
@@ -818,28 +864,25 @@ const MainApp: React.FC = () => {
       const openingAllowed =
         current.moveNumber <= OPENING_PHASE_MAX_MOVE_NUMBER &&
         !hasUrgentThreatForDecision(current, player);
-      let opening = openingAllowed ? getOpeningMove(current, player) : null;
+      const opening = openingAllowed
+        ? pickOpeningMoveForMode(current, player, requiredStones)
+        : null;
       if (opening) {
-        if (requiredStones === 1 && opening.positions.length > 1) {
-          opening = {
-            player: opening.player,
-            positions: [opening.positions[0]],
-          };
-        }
-        if (opening.positions.length === requiredStones) {
-          return normalizeDecisionDebugInfo({
-            move: opening,
-            score: 0,
-            debugInfo: {
-              strategy: 'opening',
-              engine: 'opening_book',
-              decisionStage: 'opening',
-              decisionReason: 'opening_book_safe_gate',
-              mctsVisitTarget: mctsVisitTargetHint,
-              pvsNodeTarget,
-            },
-          }, 'opening');
-        }
+        return normalizeDecisionDebugInfo({
+          move: opening,
+          score: 0,
+          debugInfo: {
+            strategy: 'opening',
+            engine: 'opening_book',
+            decisionStage: 'opening',
+            decisionReason:
+              gameMode === 'AIVSAI'
+                ? 'opening_book_sampled_safe_gate'
+                : 'opening_book_safe_gate',
+            mctsVisitTarget: mctsVisitTargetHint,
+            pvsNodeTarget,
+          },
+        }, 'opening');
       }
 
       // 1) 传统 PVS + VCDT + ZORP 搜索
@@ -884,7 +927,7 @@ const MainApp: React.FC = () => {
       r.debugInfo.pvsNodeTarget ??= pvsNodeTarget;
       return normalizeDecisionDebugInfo(r, 'hybrid_final');
     },
-    [strategyMode, mctsParallel, strategyManager, weights],
+    [gameMode, mctsParallel, pickOpeningMoveForMode, strategyManager, strategyMode, weights],
   );
 
   useEffect(() => {
@@ -959,7 +1002,11 @@ const MainApp: React.FC = () => {
 
       // 首手开局库：AI 执黑且是首手
       if (workingState.moveNumber === 0 && player === 'BLACK') {
-        const opening = getOpeningMove(workingState, player);
+        const opening = pickOpeningMoveForMode(
+          workingState,
+          player,
+          expectedStones,
+        );
         if (opening) {
           pushHistorySnapshot();
           if (actionId !== aiActionIdRef.current) return;
@@ -979,7 +1026,10 @@ const MainApp: React.FC = () => {
               strategy: 'opening',
               engine: 'opening_book',
               decisionStage: 'opening',
-              decisionReason: 'opening_book_first_move',
+              decisionReason:
+                gameMode === 'AIVSAI'
+                  ? 'opening_book_sampled_first_move'
+                  : 'opening_book_first_move',
             },
           });
           setLastAiThinkTimeMs(0);
@@ -1131,8 +1181,10 @@ const MainApp: React.FC = () => {
     [
       decideAIMove,
       gameStarted,
+      gameMode,
       isAIPlayer,
       perfMonitor,
+      pickOpeningMoveForMode,
       pushHistorySnapshot,
       strategyMode,
     ],

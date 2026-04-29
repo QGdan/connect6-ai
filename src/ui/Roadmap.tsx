@@ -6,6 +6,7 @@ import type {
   Player,
   Position,
 } from '../types';
+import { formatBoardCoord } from '../core/board_coords';
 import {
   computeRoadSuggestions,
   type RoadSuggestion,
@@ -30,8 +31,7 @@ interface RoadmapProps {
 }
 
 function formatPos(pos: Position): string {
-  const letter = String.fromCharCode(65 + pos.x);
-  return `${letter}${pos.y + 1}`;
+  return formatBoardCoord(pos);
 }
 
 function formatMs(value?: number | null): string {

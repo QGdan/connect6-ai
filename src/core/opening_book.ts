@@ -188,10 +188,17 @@ function pickBestBookMove(
   moves: BookMove[],
   required: number,
 ): BookMove | null {
+  const ranked = listValidBookMoves(state, moves, required);
+  return ranked.length > 0 ? ranked[0].move : null;
+}
+
+function listValidBookMoves(
+  state: GameState,
+  moves: BookMove[],
+  required: number,
+): { move: BookMove; dist: number }[] {
   const center = (BOARD_SIZE - 1) / 2;
-  let best: BookMove | null = null;
-  let bestWeight = -Infinity;
-  let bestDist = Infinity;
+  const ranked: { move: BookMove; dist: number }[] = [];
 
   for (const move of moves) {
     if (move.positions.length !== required) continue;
@@ -212,18 +219,49 @@ function pickBestBookMove(
       dist += Math.abs(pos.x - center) + Math.abs(pos.y - center);
     }
     if (!valid) continue;
-
-    if (move.weight > bestWeight) {
-      best = move;
-      bestWeight = move.weight;
-      bestDist = dist;
-    } else if (move.weight === bestWeight && dist < bestDist) {
-      best = move;
-      bestDist = dist;
-    }
+    ranked.push({ move, dist });
   }
 
-  return best;
+  ranked.sort((a, b) => {
+    if (b.move.weight !== a.move.weight) return b.move.weight - a.move.weight;
+    return a.dist - b.dist;
+  });
+
+  return ranked;
+}
+
+export function getOpeningMoveCandidates(
+  state: GameState,
+  player: Player,
+  options?: {
+    maxCount?: number;
+    maxWeightDrop?: number;
+  },
+): Move[] {
+  const required = getStonesToPlace(state.moveNumber, player);
+  const bookMoves = BOOK_INDEX.get(state.zobristHash);
+  if (!bookMoves) return [];
+
+  const ranked = listValidBookMoves(state, bookMoves, required);
+  if (ranked.length === 0) return [];
+
+  const bestWeight = ranked[0].move.weight;
+  const weightDrop =
+    options && Number.isFinite(options.maxWeightDrop)
+      ? Math.max(0, options.maxWeightDrop as number)
+      : Infinity;
+  const maxCount =
+    options && Number.isFinite(options.maxCount)
+      ? Math.max(1, Math.floor(options.maxCount as number))
+      : ranked.length;
+
+  const selected: Move[] = [];
+  for (const entry of ranked) {
+    if (bestWeight - entry.move.weight > weightDrop) break;
+    selected.push({ player, positions: entry.move.positions });
+    if (selected.length >= maxCount) break;
+  }
+  return selected;
 }
 
 export function getOpeningMove(

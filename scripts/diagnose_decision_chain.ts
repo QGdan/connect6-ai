@@ -27,6 +27,7 @@ type TurnRecord = {
   reason: string;
   urgent: boolean;
   immediateBlunder: boolean;
+  blunderAvoidable: boolean | null;
   tracePath: string;
   traceEvents: number;
   move: string;
@@ -39,11 +40,15 @@ type Summary = {
   urgentTurns: number;
   traditional: {
     immediateBlunder: number;
+    immediateBlunderAvoidable: number;
+    immediateBlunderUnavoidable: number;
     openingInUrgent: number;
     traceMissing: number;
   };
   hybrid: {
     immediateBlunder: number;
+    immediateBlunderAvoidable: number;
+    immediateBlunderUnavoidable: number;
     unsafeFallback: number;
     disagreeWithTraditional: number;
     hybridFinal: number;
@@ -73,6 +78,8 @@ type CasebookEntry = {
   hybridMove: string;
   traditionalBlunder: boolean;
   hybridBlunder: boolean;
+  traditionalBlunderAvoidable: boolean | null;
+  hybridBlunderAvoidable: boolean | null;
 };
 
 type Casebook = {
@@ -188,6 +195,44 @@ function opponentHasImmediate(state: GameState, playerWhoJustMoved: Player): boo
   return oppReport.winIn1.length > 0 || (oppNeed >= 2 && oppReport.winIn2.length > 0);
 }
 
+function hasAnyNonImmediateDefense(
+  state: GameState,
+  player: Player,
+): boolean {
+  const stones = getStonesToPlace(state.moveNumber, player);
+  const empties: Position[] = [];
+  for (let y = 0; y < 19; y += 1) {
+    for (let x = 0; x < 19; x += 1) {
+      if (state.board[y][x] === 0) empties.push({ x, y });
+    }
+  }
+
+  if (stones === 1) {
+    for (const p of empties) {
+      try {
+        const next = applyMoveWithWinner(state, { player, positions: [p] });
+        if (!opponentHasImmediate(next, player)) return true;
+      } catch {
+        // ignore illegal
+      }
+    }
+    return false;
+  }
+
+  for (let i = 0; i < empties.length; i += 1) {
+    for (let j = i + 1; j < empties.length; j += 1) {
+      const move: Move = { player, positions: [empties[i], empties[j]] };
+      try {
+        const next = applyMoveWithWinner(state, move);
+        if (!opponentHasImmediate(next, player)) return true;
+      } catch {
+        // ignore illegal
+      }
+    }
+  }
+  return false;
+}
+
 function tracePath(traces: DecisionTraceRecord[]): string {
   const phases: string[] = [];
   for (const trace of traces) {
@@ -246,11 +291,15 @@ async function main(): Promise<void> {
     urgentTurns: 0,
     traditional: {
       immediateBlunder: 0,
+      immediateBlunderAvoidable: 0,
+      immediateBlunderUnavoidable: 0,
       openingInUrgent: 0,
       traceMissing: 0,
     },
     hybrid: {
       immediateBlunder: 0,
+      immediateBlunderAvoidable: 0,
+      immediateBlunderUnavoidable: 0,
       unsafeFallback: 0,
       disagreeWithTraditional: 0,
       hybridFinal: 0,
@@ -341,8 +390,26 @@ async function main(): Promise<void> {
         const hybridNext = applyMoveWithWinner(state, hybridDecision.move);
         const traditionalBlunder = opponentHasImmediate(traditionalNext, state.currentPlayer);
         const hybridBlunder = opponentHasImmediate(hybridNext, state.currentPlayer);
-        if (traditionalBlunder) summary.traditional.immediateBlunder += 1;
-        if (hybridBlunder) summary.hybrid.immediateBlunder += 1;
+        let blunderAvoidable: boolean | null = null;
+        if (traditionalBlunder || hybridBlunder) {
+          blunderAvoidable = hasAnyNonImmediateDefense(state, state.currentPlayer);
+        }
+        if (traditionalBlunder) {
+          summary.traditional.immediateBlunder += 1;
+          if (blunderAvoidable) {
+            summary.traditional.immediateBlunderAvoidable += 1;
+          } else {
+            summary.traditional.immediateBlunderUnavoidable += 1;
+          }
+        }
+        if (hybridBlunder) {
+          summary.hybrid.immediateBlunder += 1;
+          if (blunderAvoidable) {
+            summary.hybrid.immediateBlunderAvoidable += 1;
+          } else {
+            summary.hybrid.immediateBlunderUnavoidable += 1;
+          }
+        }
 
         const hybridJudge = hybridDecision.debugInfo?.hybridJudge as
           | { safeCandidates?: number }
@@ -377,6 +444,8 @@ async function main(): Promise<void> {
             hybridMove: formatMove(hybridDecision.move),
             traditionalBlunder,
             hybridBlunder,
+            traditionalBlunderAvoidable: traditionalBlunder ? blunderAvoidable : null,
+            hybridBlunderAvoidable: hybridBlunder ? blunderAvoidable : null,
           });
         }
 
@@ -397,6 +466,7 @@ async function main(): Promise<void> {
             reason: String(traditionalDecision.debugInfo?.decisionReason ?? traditionalDecision.debugInfo?.reason ?? ''),
             urgent,
             immediateBlunder: traditionalBlunder,
+            blunderAvoidable: traditionalBlunder ? blunderAvoidable : null,
             tracePath: tracePath(traditionalTraces),
             traceEvents: traditionalTraces.reduce((n, t) => n + t.events.length, 0),
             move: formatMove(traditionalDecision.move),
@@ -412,6 +482,7 @@ async function main(): Promise<void> {
             reason: String(hybridDecision.debugInfo?.decisionReason ?? hybridDecision.debugInfo?.reason ?? ''),
             urgent,
             immediateBlunder: hybridBlunder,
+            blunderAvoidable: hybridBlunder ? blunderAvoidable : null,
             tracePath: tracePath(hybridTraces),
             traceEvents: hybridTraces.reduce((n, t) => n + t.events.length, 0),
             move: formatMove(hybridDecision.move),
@@ -451,9 +522,13 @@ async function main(): Promise<void> {
     '## Metrics',
     '',
     `- traditional.immediateBlunder: ${summary.traditional.immediateBlunder}`,
+    `- traditional.immediateBlunderAvoidable: ${summary.traditional.immediateBlunderAvoidable}`,
+    `- traditional.immediateBlunderUnavoidable: ${summary.traditional.immediateBlunderUnavoidable}`,
     `- traditional.openingInUrgent: ${summary.traditional.openingInUrgent}`,
     `- traditional.traceMissing: ${summary.traditional.traceMissing}`,
     `- hybrid.immediateBlunder: ${summary.hybrid.immediateBlunder}`,
+    `- hybrid.immediateBlunderAvoidable: ${summary.hybrid.immediateBlunderAvoidable}`,
+    `- hybrid.immediateBlunderUnavoidable: ${summary.hybrid.immediateBlunderUnavoidable}`,
     `- hybrid.unsafeFallback: ${summary.hybrid.unsafeFallback}`,
     `- hybrid.disagreeWithTraditional: ${summary.hybrid.disagreeWithTraditional}`,
     `- hybrid.hybridFinal: ${summary.hybrid.hybridFinal}`,
@@ -479,7 +554,7 @@ async function main(): Promise<void> {
     ...topSuspicious.map(item =>
       `- g${item.gameIndex + 1} t${item.turnIndex + 1} ${item.mode} stage=${item.stage} ` +
       `engine=${item.engine} urgent=${item.urgent} blunder=${item.immediateBlunder} ` +
-      `traceEvents=${item.traceEvents} move=${item.move}`,
+      `avoidable=${item.blunderAvoidable} traceEvents=${item.traceEvents} move=${item.move}`,
     ),
   ].join('\n');
   const reportPath = path.join(outputDir, 'decision_trace_report.md');
